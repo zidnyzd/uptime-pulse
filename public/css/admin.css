@@ -1,56 +1,340 @@
-/* UptimePulse Admin Console - Option 3: Widget / Tile Cards Grid (ala Beszel / Netdata) */
+/* ============================================================
+   Linear / DevOps Dashboard Shell: Left Sidebar, Top Bar, Bottom Bar
+   ============================================================ */
 
-/* Shell Header */
-header {
+/* App Layout Container */
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--bg);
+  position: relative;
+}
+
+/* Sidebar Backdrop (Mobile Drawer) */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 80;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-backdrop.active {
+  display: block;
+  opacity: 1;
+}
+
+/* ============================================================
+   1. LEFT SIDEBAR (Sisi Kiri: Atas & Bawah)
+   ============================================================ */
+.sidebar {
+  width: 250px;
+  min-width: 250px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: rgba(14, 18, 24, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--card-border);
+  z-index: 90;
+  padding: 16px 14px;
+}
+
+/* Sisi Kiri Atas: Brand & Navigation */
+.sidebar-top {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 6px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.brand-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f7f8f8;
+  letter-spacing: -0.01em;
+}
+
+.brand-tag {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 10px 10px 4px;
+}
+
+.nav-link-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.nav-link-btn-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-link-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.nav-link-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #f7f8f8;
+}
+
+.nav-link-btn.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.nav-badge-pill {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+
+.nav-badge-pill.warning {
+  background: rgba(248, 81, 73, 0.2);
+  color: var(--red);
+}
+
+/* Sisi Kiri Bawah: User Profile Card & Logout */
+.sidebar-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.user-profile-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+}
+
+.user-meta-wrap {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.user-avatar-circle {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1f6feb, #238636);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.user-text-info {
+  min-width: 0;
+}
+
+.user-name-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f7f8f8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-role-text {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.btn-logout-tiny {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-logout-tiny:hover {
+  background: rgba(248, 81, 73, 0.15);
+  border-color: rgba(248, 81, 73, 0.3);
+  color: var(--red);
+}
+
+/* ============================================================
+   2. MAIN CONTENT WRAPPER
+   ============================================================ */
+.main-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Top Navbar (Navbar Atas) */
+.top-navbar {
+  height: 60px;
+  min-height: 60px;
+  padding: 0 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 0 24px;
+  background: rgba(9, 13, 19, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--card-border);
-  margin-bottom: 24px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
 }
 
-.brand-wrapper {
+.top-nav-left {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
 }
 
-.brand-meta h1 {
-  font-size: 18px;
+.mobile-menu-toggle {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-headline-area {
+  display: flex;
+  flex-direction: column;
+}
+
+.page-headline-title {
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   color: #f7f8f8;
+}
+
+.page-breadcrumb {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.top-nav-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
-.version-pill {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.subtitle {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-.header-actions {
+.live-indicator-tag {
   display: flex;
-  gap: 10px;
   align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--card-border);
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
-/* KPI Summary Cards Grid */
+/* Content Body */
+.content-body {
+  flex: 1;
+  padding: 28px 32px 48px;
+}
+
+/* Bottom Bar (Navbar Bawah / Status Bar) */
+.bottom-bar {
+  padding: 14px 32px;
+  border-top: 1px solid var(--card-border);
+  background: rgba(9, 13, 19, 0.6);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.bottom-bar-left, .bottom-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ============================================================
+   KPI Cards Grid & Toolbar
+   ============================================================ */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -94,7 +378,7 @@ header {
 .kpi-val {
   font-size: 24px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: #f7f8f8;
 }
 
@@ -125,12 +409,12 @@ header {
 .search-box {
   position: relative;
   flex: 1;
-  max-width: 340px;
+  max-width: 320px;
 }
 
 .search-box svg {
   position: absolute;
-  left: 12px;
+  left: 11px;
   top: 50%;
   transform: translateY(-50%);
   width: 14px;
@@ -140,7 +424,7 @@ header {
 
 .search-input {
   width: 100%;
-  padding: 8px 12px 8px 36px;
+  padding: 8px 12px 8px 34px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--card-border);
@@ -185,7 +469,7 @@ header {
 }
 
 /* ============================================================
-   OPTION 3: TILE / WIDGET CARDS GRID
+   WIDGET CARDS GRID
    ============================================================ */
 .widget-grid {
   display: grid;
@@ -214,7 +498,6 @@ header {
   transform: translateY(-2px);
 }
 
-/* Card Header */
 .widget-header {
   display: flex;
   justify-content: space-between;
@@ -285,7 +568,6 @@ header {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-/* Card Quick Actions */
 .widget-actions {
   display: flex;
   gap: 5px;
@@ -321,7 +603,6 @@ header {
   border-color: rgba(248, 81, 73, 0.3);
 }
 
-/* Card Metrics Grid */
 .widget-metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -352,7 +633,6 @@ header {
   margin-top: 2px;
 }
 
-/* Sparkline Bar History */
 .widget-history {
   display: flex;
   flex-direction: column;
@@ -398,7 +678,55 @@ header {
   padding-top: 10px;
 }
 
-/* Modal styling */
+/* Incidents View Table */
+.incidents-view-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.incident-row {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.incident-row:last-child {
+  border-bottom: none;
+}
+
+.incident-row-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.incident-row-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f7f8f8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.incident-row-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.incident-row-err {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Modals */
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -425,7 +753,6 @@ header {
   margin-top: 24px;
 }
 
-/* Empty State */
 .empty-state {
   grid-column: 1 / -1;
   text-align: center;
@@ -440,48 +767,48 @@ header {
   margin-bottom: 14px;
 }
 
-/* Responsive Reflow (Desktop -> Tablet -> Mobile) */
-@media (max-width: 880px) {
-  .kpi-grid {
-    grid-template-columns: repeat(2, 1fr);
+/* ============================================================
+   RESPONSIVE REFLOW (Mobile & Tablet)
+   ============================================================ */
+@media (max-width: 992px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .widget-grid {
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+  }
+
+  .content-body {
+    padding: 20px 24px 40px;
+  }
+
+  .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 640px) {
-  .container {
-    padding: 16px 14px 48px;
+  .top-navbar {
+    padding: 0 16px;
   }
 
-  header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-    padding: 12px 0 16px;
-    margin-bottom: 18px;
-  }
-
-  .header-actions {
-    display: flex;
-    justify-content: flex-start;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .header-actions .btn {
-    padding: 6px 12px;
-    font-size: 12px;
-    height: 32px;
-    min-height: 32px;
-    border-radius: 6px;
+  .content-body {
+    padding: 16px 14px 40px;
   }
 
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
-    margin-bottom: 18px;
   }
 
   .kpi-card {
@@ -496,13 +823,11 @@ header {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
-    margin-bottom: 16px;
   }
 
   .toolbar-left {
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
     width: 100%;
   }
 
@@ -511,57 +836,35 @@ header {
   }
 
   .search-input {
-    padding: 6px 10px 6px 32px;
-    font-size: 12px;
     height: 34px;
+    font-size: 12px;
   }
 
   .filter-pills {
-    display: flex;
-    gap: 4px;
     overflow-x: auto;
   }
 
   .filter-pill {
-    padding: 5px 12px;
-    font-size: 12px;
-    height: 30px;
-    min-height: 30px;
-    border-radius: 6px;
     flex: 1;
     text-align: center;
-  }
-
-  .toolbar .btn-primary {
-    width: 100%;
-    height: 36px;
-    min-height: 36px;
-    font-size: 13px;
-    border-radius: 6px;
-    padding: 8px 16px;
+    height: 30px;
+    padding: 5px 10px;
   }
 
   .widget-grid {
     grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .widget-card {
-    padding: 14px 16px;
-    gap: 12px;
   }
 
   .btn-icon {
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
-    min-height: 30px;
-    border-radius: 6px;
+    width: 32px;
+    height: 32px;
   }
 
-  .btn-icon svg {
-    width: 13px;
-    height: 13px;
+  .bottom-bar {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+    padding: 14px 16px;
   }
 
   .modal {

@@ -44,7 +44,7 @@ function showLogin() {
 
 function showDashboard() {
   document.getElementById('login-modal').style.display = 'none';
-  document.getElementById('main-app').style.display = 'block';
+  document.getElementById('main-app').style.display = 'flex';
 }
 
 // Handler form login
@@ -310,6 +310,16 @@ function recalcStats() {
   document.getElementById('kpi-total').textContent = total;
   document.getElementById('kpi-up').textContent = up;
   document.getElementById('kpi-down').textContent = down;
+
+  // Update sidebar counter badges
+  const navMon = document.getElementById('nav-count-monitors');
+  if (navMon) navMon.textContent = total;
+
+  const navInc = document.getElementById('nav-count-incidents');
+  if (navInc) {
+    navInc.textContent = down;
+    navInc.style.display = down > 0 ? 'inline-block' : 'none';
+  }
 
   const incidentDot = document.getElementById('kpi-incident-dot');
   const incidentSub = document.getElementById('kpi-incident-sub');
@@ -618,6 +628,108 @@ async function handleTestTelegram() {
     testBtn.disabled = false;
     testBtn.textContent = 'Test Message';
   }
+}
+
+// --- Navigation & View Switching ---
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (sidebar.classList.contains('open')) {
+    sidebar.classList.remove('open');
+    backdrop.classList.remove('active');
+  } else {
+    sidebar.classList.add('open');
+    backdrop.classList.add('active');
+  }
+}
+
+async function switchView(viewName) {
+  const monitorsView = document.getElementById('view-monitors');
+  const incidentsView = document.getElementById('view-incidents');
+  const navMonitors = document.getElementById('nav-monitors');
+  const navIncidents = document.getElementById('nav-incidents');
+  const pageTitle = document.getElementById('page-title');
+
+  if (viewName === 'incidents') {
+    monitorsView.style.display = 'none';
+    incidentsView.style.display = 'block';
+    navMonitors.classList.remove('active');
+    navIncidents.classList.add('active');
+    pageTitle.textContent = 'Incident History & Downtime Log';
+    await loadIncidents();
+  } else {
+    monitorsView.style.display = 'block';
+    incidentsView.style.display = 'none';
+    navMonitors.classList.add('active');
+    navIncidents.classList.remove('active');
+    pageTitle.textContent = 'Infrastructure Overview';
+  }
+
+  // Close mobile sidebar if open
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (sidebar.classList.contains('open')) {
+    sidebar.classList.remove('open');
+    backdrop.classList.remove('active');
+  }
+}
+
+async function loadIncidents() {
+  const feed = document.getElementById('incidents-feed');
+  try {
+    const res = await fetch('/api/public/summary');
+    if (!res.ok) return;
+    const data = await res.json();
+    const incs = data.recent_incidents || [];
+
+    if (incs.length === 0) {
+      feed.innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 14 14"></polyline>
+          </svg>
+          <p>Belum ada rekaman insiden. Semua sistem berjalan stabil.</p>
+        </div>
+      `;
+      return;
+    }
+
+    feed.innerHTML = '';
+    for (const inc of incs) {
+      const row = document.createElement('div');
+      row.className = 'incident-row';
+      const isOngoing = inc.is_ongoing;
+      const statusPill = isOngoing
+        ? `<span class="type-pill ping" style="background: rgba(248,81,73,0.15); color: var(--red);">Ongoing Outage</span>`
+        : `<span class="type-pill" style="background: var(--green-bg); color: var(--green);">Resolved in ${formatDuration(inc.duration_sec || 0)}</span>`;
+
+      row.innerHTML = `
+        <div class="incident-row-meta">
+          <div class="incident-row-title">
+            <span>${escapeHtml(inc.service_name)}</span>
+            ${statusPill}
+          </div>
+          <div class="incident-row-time">${escapeHtml(inc.started_at)}</div>
+        </div>
+        <div class="incident-row-err">
+          ${escapeHtml(inc.error_message || 'Connection Error')}
+        </div>
+      `;
+      feed.appendChild(row);
+    }
+  } catch (err) {
+    feed.innerHTML = `<div class="empty-state"><p>Gagal memuat insiden: ${err}</p></div>`;
+  }
+}
+
+function formatDuration(sec) {
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m < 60) return `${m}m ${s}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
