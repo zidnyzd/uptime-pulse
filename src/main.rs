@@ -1,20 +1,20 @@
-// Deklarasi modul internal project
-mod db;
+// Deklarasi modul arsitektur MVC (Model-View-Controller)
+mod database;
 mod engine;
 mod models;
 mod prober;
-mod web;
+mod middlewares;
+mod controllers;
+mod routes;
 
 use std::net::SocketAddr;
-use std::sync::Arc;
 use tokio::sync::broadcast;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-// #[tokio::main] menginisialisasi multi-threaded async runtime Tokio sebelum fungsi main berjalan
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Setup structured logging; level log dapat diatur dinamis via env variable RUST_LOG
+    // Setup structured logging; format log konsol dan filter trace
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -23,25 +23,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Lokasi database SQLite; dapat diarahkan ke /tmp/uptime.db di OpenWrt via env UPTIME_DB_PATH
+    // Inisialisasi Database SQLite
     let db_path = std::env::var("UPTIME_DB_PATH").unwrap_or_else(|_| "uptime.db".to_string());
     info!("Initializing database at '{}'...", db_path);
-    let db = db::init_db(&db_path)?;
+    let db = database::init_db(&db_path)?;
 
-    // Channel broadcast Tokio untuk mendistribusikan event probe real-time ke semua klien SSE
+    // Pastikan user admin default tersedia (dapat di-override via env ADMIN_PASSWORD)
+    let default_admin_pass = std::env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "admin".to_string());
+    models::User::ensure_admin_exists(&db, &default_admin_pass).await?;
+    info!("Admin account verified (username: 'admin').");
+
+    // Channel broadcast Tokio untuk pengiriman event probe secara real-time ke web SSE
     let (event_tx, _) = broadcast::channel(100);
 
-    // Menjalankan scheduler loop di background task Tokio
+    // Menjalankan scheduler loop prober di background task Tokio
     engine::start_scheduler(db.clone(), event_tx.clone());
 
-    // Menyusun state aplikasi Axum (database connection pool & event broadcaster)
-    let app_state = Arc::new(web::AppState {
-        db,
-        event_tx,
-    });
-    let app = web::create_router(app_state);
+    // Membangun routing MVC aplikasi (API publik, Admin routes dengan middleware auth, Web views)
+    let app = routes::create_router(db, event_tx);
 
-    // Konfigurasi alamat bind & port web server
+    // Konfigurasi binding port dan host
     let host = std::env::var("UPTIME_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port: u16 = std::env::var("UPTIME_PORT")
         .ok()
@@ -51,7 +52,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
     info!("🚀 UptimePulse running at http://{}", addr);
 
-    // Binding TCP listener dan menjalankan HTTP server Axum secara non-blocking
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
 

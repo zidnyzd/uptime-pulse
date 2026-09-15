@@ -6,8 +6,8 @@ use tokio::time::{sleep, Duration};
 use tracing::{error, info};
 use serde::{Deserialize, Serialize};
 
-use crate::db::{self, DbPool};
-use crate::models::ProbeResult;
+use crate::database::DbPool;
+use crate::models::{Heartbeat, Monitor, ProbeResult};
 use crate::prober;
 
 // Event yang dipancarkan secara real-time ke web browser via Server-Sent Events (SSE)
@@ -38,7 +38,7 @@ pub fn start_scheduler(db: DbPool, event_tx: EventSender) {
             // Tick interval 1 detik untuk mengevaluasi apakah ada monitor yang sudah jatuh tempo
             sleep(Duration::from_secs(1)).await;
 
-            let monitors = match db::list_monitors(&db_clone).await {
+            let monitors = match Monitor::all(&db_clone).await {
                 Ok(m) => m,
                 Err(e) => {
                     error!("Scheduler failed to query monitors: {}", e);
@@ -95,7 +95,7 @@ pub async fn run_probe_and_record(
 ) -> ProbeResult {
     let result = prober::probe(monitor_id, monitor_type, target, timeout_sec).await;
 
-    if let Err(e) = db::record_heartbeat(db, &result).await {
+    if let Err(e) = Heartbeat::record(db, &result).await {
         error!("Failed to record heartbeat for monitor {}: {}", monitor_id, e);
     }
 

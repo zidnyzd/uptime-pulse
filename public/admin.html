@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UptimePulse - Ultra-light Monitoring</title>
+  <title>UptimePulse - Admin Console</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -110,6 +110,7 @@
       transition: all 0.15s ease;
       background: #21262d;
       color: var(--text);
+      text-decoration: none;
     }
 
     .btn:hover {
@@ -128,7 +129,7 @@
     }
 
     .btn-sm {
-      padding: 4px 10px;
+      padding: 5px 12px;
       font-size: 12px;
       border-radius: 6px;
     }
@@ -339,12 +340,12 @@
       border-color: #da3633;
     }
 
-    /* Modal */
+    /* Modals */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.65);
-      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
       display: none;
       align-items: center;
       justify-content: center;
@@ -358,7 +359,7 @@
       width: 100%;
       max-width: 440px;
       padding: 24px;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
     }
 
     .modal-header {
@@ -445,7 +446,7 @@
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container" id="main-app" style="display: none;">
     <!-- Header -->
     <header>
       <div class="brand">
@@ -460,8 +461,9 @@
         </div>
       </div>
       <div class="header-actions">
-        <a href="/" class="btn btn-sm" style="text-decoration:none;">View Public Status</a>
-        <button class="btn btn-primary" onclick="openModal()">
+        <a href="/" class="btn btn-sm">View Public Status</a>
+        <button class="btn btn-sm" id="btn-logout" onclick="handleLogout()">Logout</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddModal()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -506,12 +508,43 @@
     </div>
   </div>
 
+  <!-- Login Modal Overlay -->
+  <div class="modal-overlay" id="login-modal" style="display: flex;">
+    <div class="modal" style="max-width: 380px;">
+      <div style="text-align: center; margin-bottom: 22px;">
+        <div class="logo-badge" style="margin: 0 auto 14px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+        <h2 style="font-size: 18px; font-weight: 600;">Admin Console Login</h2>
+        <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Enter credentials to manage monitors</p>
+      </div>
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" class="form-control" id="login-user" value="admin" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" class="form-control" id="login-pass" placeholder="Password" required autocomplete="current-password">
+        </div>
+        <div id="login-err-msg" style="color: var(--red); font-size: 12px; margin-bottom: 12px; display: none;"></div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <a href="/" class="btn" style="flex: 1; justify-content: center;">Back</a>
+          <button type="submit" class="btn btn-primary" style="flex: 1; justify-content: center;" id="btn-login-submit">Sign In</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Add Monitor Modal -->
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
       <div class="modal-header">
         <div class="modal-title">New Monitor</div>
-        <button class="btn-icon" onclick="closeModal()">&times;</button>
+        <button class="btn-icon" onclick="closeAddModal()">&times;</button>
       </div>
       <form id="monitor-form" onsubmit="handleCreateMonitor(event)">
         <div class="form-group">
@@ -536,7 +569,7 @@
           <input type="text" class="form-control" id="m-target" placeholder="https://example.com" required>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+          <button type="button" class="btn" onclick="closeAddModal()">Cancel</button>
           <button type="submit" class="btn btn-primary">Save Monitor</button>
         </div>
       </form>
@@ -546,9 +579,97 @@
   <script>
     let monitorsMap = new Map();
 
+    // Wrapper fetch yang otomatis menyertakan session cookie & Bearer token
+    async function apiFetch(url, options = {}) {
+      options.credentials = 'same-origin';
+      options.headers = options.headers || {};
+      const token = localStorage.getItem('uptime_token');
+      if (token) {
+        options.headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch(url, options);
+      if (res.status === 401) {
+        showLogin();
+        throw new Error('Unauthorized');
+      }
+      return res;
+    }
+
+    async function checkAuth() {
+      try {
+        const res = await apiFetch('/api/auth/me');
+        const data = await res.json();
+        if (data.authenticated) {
+          showDashboard();
+          await loadMonitors();
+          initSSE();
+        } else {
+          showLogin();
+        }
+      } catch (e) {
+        showLogin();
+      }
+    }
+
+    function showLogin() {
+      document.getElementById('login-modal').style.display = 'flex';
+      document.getElementById('main-app').style.display = 'none';
+      document.getElementById('login-pass').focus();
+    }
+
+    function showDashboard() {
+      document.getElementById('login-modal').style.display = 'none';
+      document.getElementById('main-app').style.display = 'block';
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('login-user').value;
+      const password = document.getElementById('login-pass').value;
+      const errBox = document.getElementById('login-err-msg');
+      const submitBtn = document.getElementById('btn-login-submit');
+
+      errBox.style.display = 'none';
+      submitBtn.textContent = 'Signing in...';
+      submitBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          localStorage.setItem('uptime_token', data.token);
+          showDashboard();
+          await loadMonitors();
+          initSSE();
+        } else {
+          errBox.textContent = data.error || 'Login gagal';
+          errBox.style.display = 'block';
+        }
+      } catch (err) {
+        errBox.textContent = 'Gagal menghubungi server: ' + err;
+        errBox.style.display = 'block';
+      } finally {
+        submitBtn.textContent = 'Sign In';
+        submitBtn.disabled = false;
+      }
+    }
+
+    async function handleLogout() {
+      try {
+        await apiFetch('/api/auth/logout', { method: 'POST' });
+      } catch (e) {}
+      localStorage.removeItem('uptime_token');
+      window.location.reload();
+    }
+
     async function loadMonitors() {
       try {
-        const res = await fetch('/api/monitors');
+        const res = await apiFetch('/api/monitors');
         const list = await res.json();
         const container = document.getElementById('monitor-container');
         
@@ -581,7 +702,7 @@
 
     async function loadDetails(id) {
       try {
-        const res = await fetch(`/api/monitors/${id}`);
+        const res = await apiFetch(`/api/monitors/${id}`);
         if (!res.ok) return;
         const data = await res.json();
         updateCardMetrics(data);
@@ -620,7 +741,6 @@
           </div>
         </div>
         <div class="bars-container" id="bars-${m.id}">
-          <!-- Mini bars generated here -->
         </div>
         <div class="card-actions">
           <button class="btn-icon" title="Check Now" onclick="checkNow(${m.id})">
@@ -671,7 +791,6 @@
       if (barsContainer && data.recent_heartbeats) {
         barsContainer.innerHTML = '';
         const hbs = data.recent_heartbeats;
-        // Pad with empty bars if fewer than 20
         const padCount = Math.max(0, 25 - hbs.length);
         for (let i = 0; i < padCount; i++) {
           const emptyBar = document.createElement('div');
@@ -681,7 +800,6 @@
         for (const hb of hbs) {
           const bar = document.createElement('div');
           bar.className = `bar ${hb.is_up ? '' : 'down'}`;
-          // Scale latency height between 8px and 28px
           const height = hb.is_up ? Math.min(28, Math.max(8, Math.round(hb.latency_ms / 15))) : 28;
           bar.style.height = `${height}px`;
           bar.title = `${hb.checked_at} - ${hb.is_up ? hb.latency_ms + 'ms' : (hb.error_message || 'Down')}`;
@@ -746,7 +864,7 @@
 
     async function checkNow(id) {
       try {
-        await fetch(`/api/monitors/${id}/check`, { method: 'POST' });
+        await apiFetch(`/api/monitors/${id}/check`, { method: 'POST' });
         loadDetails(id);
       } catch (err) {
         alert('Check failed: ' + err);
@@ -755,7 +873,7 @@
 
     async function togglePause(id) {
       try {
-        await fetch(`/api/monitors/${id}/pause`, { method: 'POST' });
+        await apiFetch(`/api/monitors/${id}/pause`, { method: 'POST' });
         loadDetails(id);
       } catch (err) {
         alert('Action failed: ' + err);
@@ -765,7 +883,7 @@
     async function deleteMonitor(id) {
       if (!confirm('Are you sure you want to remove this monitor?')) return;
       try {
-        await fetch(`/api/monitors/${id}`, { method: 'DELETE' });
+        await apiFetch(`/api/monitors/${id}`, { method: 'DELETE' });
         monitorsMap.delete(id);
         const card = document.getElementById(`card-${id}`);
         if (card) card.remove();
@@ -775,12 +893,12 @@
       }
     }
 
-    function openModal() {
+    function openAddModal() {
       document.getElementById('add-modal').style.display = 'flex';
       document.getElementById('m-name').focus();
     }
 
-    function closeModal() {
+    function closeAddModal() {
       document.getElementById('add-modal').style.display = 'none';
       document.getElementById('monitor-form').reset();
     }
@@ -809,14 +927,14 @@
       };
 
       try {
-        const res = await fetch('/api/monitors', {
+        const res = await apiFetch('/api/monitors', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
 
         if (res.ok) {
-          closeModal();
+          closeAddModal();
           await loadMonitors();
         } else {
           const err = await res.text();
@@ -833,8 +951,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      loadMonitors();
-      initSSE();
+      checkAuth();
     });
   </script>
 </body>

@@ -1805,6 +1805,7 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "tokio-stream",
  "tower-http 0.7.1",
