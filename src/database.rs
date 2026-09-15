@@ -27,6 +27,7 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
              max_retries INTEGER NOT NULL DEFAULT 3,
              consecutive_fails INTEGER NOT NULL DEFAULT 0,
              is_active INTEGER NOT NULL DEFAULT 1,
+             is_public INTEGER NOT NULL DEFAULT 1,
              status TEXT NOT NULL DEFAULT 'pending',
              last_latency_ms REAL,
              last_check_at TEXT,
@@ -83,12 +84,18 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
          "
          )?;
 
-         // Migrasi kolom toleransi retry (anti-false alarm) jika belum ada di database lama
-         let has_max_retries = conn.prepare("SELECT max_retries FROM monitors LIMIT 1").is_ok();
-         if !has_max_retries {
-         let _ = conn.execute("ALTER TABLE monitors ADD COLUMN max_retries INTEGER NOT NULL DEFAULT 3", []);
-         let _ = conn.execute("ALTER TABLE monitors ADD COLUMN consecutive_fails INTEGER NOT NULL DEFAULT 0", []);
-         }
+    // Migrasi kolom toleransi retry (anti-false alarm) jika belum ada di database lama
+    let has_max_retries = conn.prepare("SELECT max_retries FROM monitors LIMIT 1").is_ok();
+    if !has_max_retries {
+        let _ = conn.execute("ALTER TABLE monitors ADD COLUMN max_retries INTEGER NOT NULL DEFAULT 3", []);
+        let _ = conn.execute("ALTER TABLE monitors ADD COLUMN consecutive_fails INTEGER NOT NULL DEFAULT 0", []);
+    }
 
-         Ok(Arc::new(Mutex::new(conn)))
+    // Migrasi kolom visibilitas publik/privat jika belum ada
+    let has_is_public = conn.prepare("SELECT is_public FROM monitors LIMIT 1").is_ok();
+    if !has_is_public {
+        let _ = conn.execute("ALTER TABLE monitors ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1", []);
+    }
+
+    Ok(Arc::new(Mutex::new(conn)))
 }

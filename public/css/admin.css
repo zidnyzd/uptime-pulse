@@ -641,6 +641,46 @@
   transform: translateY(-2px);
 }
 
+/* Paused Card Yellow Border & Ambient Accent */
+.widget-card.paused {
+  border-color: rgba(234, 179, 8, 0.45);
+  box-shadow: 0 0 16px rgba(234, 179, 8, 0.08), inset 0 0 0 1px rgba(234, 179, 8, 0.12);
+  background: rgba(234, 179, 8, 0.02);
+}
+
+.widget-card.paused:hover {
+  border-color: rgba(234, 179, 8, 0.7);
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.14), inset 0 0 0 1px rgba(234, 179, 8, 0.2);
+}
+
+.paused-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(234, 179, 8, 0.14);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+.private-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  border: 1px solid var(--card-border);
+}
+
 .widget-header {
   display: flex;
   justify-content: space-between;

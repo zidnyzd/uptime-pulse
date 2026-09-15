@@ -378,7 +378,7 @@ impl Heartbeat {
         let mut down_count = 0;
 
         for m in &monitors {
-            if !m.is_active {
+            if !m.is_active || !m.is_public {
                 continue;
             }
 

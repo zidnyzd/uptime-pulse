@@ -36,11 +36,17 @@ pub struct BackupMonitorItem {
     pub timeout_sec: i64,
     #[serde(default = "default_item_retries")]
     pub max_retries: Option<i64>,
+    #[serde(default = "default_item_is_public")]
+    pub is_public: Option<bool>,
     pub is_active: bool,
 }
 
 fn default_item_retries() -> Option<i64> {
     Some(3)
+}
+
+fn default_item_is_public() -> Option<bool> {
+    Some(true)
 }
 
 #[derive(Debug, Deserialize)]
@@ -71,6 +77,7 @@ pub async fn export_json(
             interval_sec: m.interval_sec,
             timeout_sec: m.timeout_sec,
             max_retries: Some(m.max_retries),
+            is_public: Some(m.is_public),
             is_active: m.is_active,
         })
         .collect();
@@ -199,11 +206,12 @@ pub async fn restore_json(
             let timeout = m.timeout_sec.max(1);
             let max_retries = m.max_retries.unwrap_or(3).clamp(1, 10);
             let is_act = if m.is_active { 1 } else { 0 };
+            let is_pub = if m.is_public.unwrap_or(true) { 1 } else { 0 };
 
             tx.execute(
-                "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, status)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, 'pending')",
-                params![m.name, m.monitor_type, m.target, interval, timeout, max_retries, is_act],
+                "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8, 'pending')",
+                params![m.name, m.monitor_type, m.target, interval, timeout, max_retries, is_act, is_pub],
             )
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))))?;
 

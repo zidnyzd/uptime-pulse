@@ -327,7 +327,8 @@ function renderMonitors() {
 // Membuat DOM elemen kartu widget (Tile Card)
 function createMonitorWidget(m) {
   const card = document.createElement('div');
-  card.className = 'widget-card';
+  const isPaused = !m.is_active || m.status === 'paused';
+  card.className = isPaused ? 'widget-card paused' : 'widget-card';
   card.id = `card-${m.id}`;
 
   const statusClass = m.status === 'up' ? 'up' : (m.status === 'down' ? 'down' : (m.status === 'retrying' ? 'retrying' : 'paused'));
@@ -337,6 +338,15 @@ function createMonitorWidget(m) {
   const retryInfo = m.status === 'retrying' 
     ? `<span style="color: var(--yellow); font-size: 11px; font-weight: 600;">⚠️ ${i18n[currentLang].card_retrying} (${m.consecutive_fails || 1}/${m.max_retries || 3})</span>`
     : `<span>${i18n[currentLang].card_every} ${m.interval_sec}s • ${i18n[currentLang].card_retry} ${m.max_retries || 3}x</span>`;
+
+  const pausedBadge = isPaused
+    ? `<span class="paused-badge" id="paused-badge-${m.id}">⏸ ${currentLang === 'id' ? 'Dijeda' : 'Paused'}</span>`
+    : `<span class="paused-badge" id="paused-badge-${m.id}" style="display: none;">⏸ ${currentLang === 'id' ? 'Dijeda' : 'Paused'}</span>`;
+
+  const isPub = m.is_public !== false;
+  const privateBadge = !isPub
+    ? `<span class="private-badge" id="private-badge-${m.id}" title="${currentLang === 'id' ? 'Khusus Admin (Tidak tampil di Status Publik)' : 'Admin Only (Hidden from Public Status)'}">🔒 ${currentLang === 'id' ? 'Privat' : 'Private'}</span>`
+    : `<span class="private-badge" id="private-badge-${m.id}" style="display: none;">🔒</span>`;
 
   card.innerHTML = `
     <div class="widget-header">
@@ -348,6 +358,8 @@ function createMonitorWidget(m) {
           <div class="widget-name-header">
             <span class="widget-name-title" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</span>
             <span class="type-pill ${typeClass}">${m.monitor_type}</span>
+            ${privateBadge}
+            ${pausedBadge}
           </div>
           <div class="widget-endpoint" title="${escapeHtml(m.target)}">${escapeHtml(m.target)}</div>
         </div>
@@ -409,6 +421,17 @@ function createMonitorWidget(m) {
 function updateCardMetrics(data) {
   const m = data.monitor;
   monitorsMap.set(m.id, m);
+
+  const isPaused = !m.is_active || m.status === 'paused';
+  const card = document.getElementById(`card-${m.id}`);
+  if (card) {
+    card.className = isPaused ? 'widget-card paused' : 'widget-card';
+  }
+
+  const pausedBadgeEl = document.getElementById(`paused-badge-${m.id}`);
+  if (pausedBadgeEl) {
+    pausedBadgeEl.style.display = isPaused ? 'inline-flex' : 'none';
+  }
 
   const dot = document.getElementById(`dot-${m.id}`);
   if (dot) {
@@ -675,6 +698,7 @@ async function handleCreateMonitor(e) {
     interval_sec: parseInt(document.getElementById('m-interval').value) || 60,
     timeout_sec: 10,
     max_retries: parseInt(document.getElementById('m-retries').value) || 3,
+    is_public: document.getElementById('m-public').checked,
   };
 
   try {
@@ -707,6 +731,7 @@ function openEditModal(id) {
   document.getElementById('edit-interval').value = m.interval_sec;
   document.getElementById('edit-target').value = m.target;
   document.getElementById('edit-retries').value = m.max_retries || 3;
+  document.getElementById('edit-public').checked = m.is_public !== false;
 
   handleEditTypeChange();
   document.getElementById('edit-modal').style.display = 'flex';
@@ -743,6 +768,7 @@ async function handleUpdateMonitor(e) {
     interval_sec: parseInt(document.getElementById('edit-interval').value) || 60,
     timeout_sec: 10,
     max_retries: parseInt(document.getElementById('edit-retries').value) || 3,
+    is_public: document.getElementById('edit-public').checked,
   };
 
   const btn = document.getElementById('btn-edit-submit');

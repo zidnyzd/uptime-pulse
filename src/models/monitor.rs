@@ -14,6 +14,7 @@ pub struct Monitor {
     pub max_retries: i64,     // Ambang batas retry sebelum dinyatakan down (default: 3)
     pub consecutive_fails: i64, // Jumlah kegagalan beruntun saat ini
     pub is_active: bool,      // Status aktif atau dijeda
+    pub is_public: bool,      // Visibilitas publik: true = tampil di status page publik
     pub status: String,       // "up", "down", "pending", "paused", "retrying"
     pub last_latency_ms: Option<f64>,
     pub last_check_at: Option<String>,
@@ -32,6 +33,8 @@ pub struct CreateMonitorInput {
     pub timeout_sec: i64,
     #[serde(default = "default_max_retries")]
     pub max_retries: i64,
+    #[serde(default = "default_is_public")]
+    pub is_public: bool,
 }
 
 // DTO untuk pembaruan monitor yang sudah ada
@@ -44,18 +47,21 @@ pub struct UpdateMonitorInput {
     pub timeout_sec: i64,
     #[serde(default = "default_max_retries")]
     pub max_retries: i64,
+    #[serde(default = "default_is_public")]
+    pub is_public: bool,
 }
 
 fn default_interval() -> i64 { 60 }
 fn default_timeout() -> i64 { 10 }
 fn default_max_retries() -> i64 { 3 }
+fn default_is_public() -> bool { true }
 
 impl Monitor {
     // Mengambil seluruh target monitor dari database
     pub async fn all(db: &DbPool) -> Result<Vec<Monitor>> {
         let conn = db.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, status, last_latency_ms, last_check_at, created_at
+            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at
              FROM monitors ORDER BY id DESC"
         )?;
 
@@ -70,10 +76,11 @@ impl Monitor {
                 max_retries: row.get(6)?,
                 consecutive_fails: row.get(7)?,
                 is_active: row.get::<_, i32>(8)? == 1,
-                status: row.get(9)?,
-                last_latency_ms: row.get(10)?,
-                last_check_at: row.get(11)?,
-                created_at: row.get(12)?,
+                is_public: row.get::<_, i32>(9)? == 1,
+                status: row.get(10)?,
+                last_latency_ms: row.get(11)?,
+                last_check_at: row.get(12)?,
+                created_at: row.get(13)?,
             })
         })?;
 
@@ -88,7 +95,7 @@ impl Monitor {
     pub async fn find(db: &DbPool, id: i64) -> Result<Option<Monitor>> {
         let conn = db.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, status, last_latency_ms, last_check_at, created_at
+            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at
              FROM monitors WHERE id = ?1"
         )?;
 
@@ -103,10 +110,11 @@ impl Monitor {
                 max_retries: row.get(6)?,
                 consecutive_fails: row.get(7)?,
                 is_active: row.get::<_, i32>(8)? == 1,
-                status: row.get(9)?,
-                last_latency_ms: row.get(10)?,
-                last_check_at: row.get(11)?,
-                created_at: row.get(12)?,
+                is_public: row.get::<_, i32>(9)? == 1,
+                status: row.get(10)?,
+                last_latency_ms: row.get(11)?,
+                last_check_at: row.get(12)?,
+                created_at: row.get(13)?,
             })
         });
 
@@ -121,10 +129,11 @@ impl Monitor {
     pub async fn create(db: &DbPool, input: &CreateMonitorInput) -> Result<i64> {
         let conn = db.lock().await;
         let max_retries = input.max_retries.clamp(1, 10);
+        let is_public_int = if input.is_public { 1 } else { 0 };
         conn.execute(
-            "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0)",
-            params![input.name, input.monitor_type, input.target, input.interval_sec, input.timeout_sec, max_retries],
+            "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_public)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7)",
+            params![input.name, input.monitor_type, input.target, input.interval_sec, input.timeout_sec, max_retries, is_public_int],
         )?;
         Ok(conn.last_insert_rowid())
     }
@@ -156,12 +165,13 @@ impl Monitor {
         let max_retries = input.max_retries.clamp(1, 10);
         let interval_sec = input.interval_sec.max(5);
         let timeout_sec = input.timeout_sec.max(1);
+        let is_public_int = if input.is_public { 1 } else { 0 };
 
         let affected = conn.execute(
             "UPDATE monitors 
-             SET name = ?1, monitor_type = ?2, target = ?3, interval_sec = ?4, timeout_sec = ?5, max_retries = ?6
-             WHERE id = ?7",
-            params![input.name, input.monitor_type, input.target, interval_sec, timeout_sec, max_retries, id],
+             SET name = ?1, monitor_type = ?2, target = ?3, interval_sec = ?4, timeout_sec = ?5, max_retries = ?6, is_public = ?7
+             WHERE id = ?8",
+            params![input.name, input.monitor_type, input.target, interval_sec, timeout_sec, max_retries, is_public_int, id],
         )?;
         Ok(affected > 0)
     }
