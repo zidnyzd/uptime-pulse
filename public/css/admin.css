@@ -709,12 +709,14 @@
 .widget-name-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   min-width: 0;
+  width: 100%;
 }
 
 .widget-name-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #f7f8f8;
   white-space: nowrap;
@@ -722,6 +724,13 @@
   text-overflow: ellipsis;
   min-width: 0;
   flex: 1;
+}
+
+.widget-badges {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
 .type-pill {
@@ -758,15 +767,15 @@
 
 .widget-actions {
   display: flex;
-  gap: 5px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 .btn-icon {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
   flex-shrink: 0;
   border-radius: 6px;
   display: flex;
@@ -864,6 +873,28 @@
   color: var(--text-muted);
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   padding-top: 10px;
+  gap: 8px;
+}
+
+.widget-footer-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footer-time-sep {
+  opacity: 0.35;
+}
+
+.footer-time {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  opacity: 0.85;
 }
 
 /* Incidents View Table */
@@ -1149,15 +1180,23 @@
     font-size: 11px;
   }
 
+  .widget-footer {
+    gap: 8px;
+  }
+
+  .widget-footer-meta {
+    font-size: 10px;
+  }
+
   .widget-actions {
     gap: 4px;
   }
 
   .widget-actions .btn-icon {
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
-    min-height: 28px;
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    min-height: 26px;
   }
 
   .widget-metrics {
