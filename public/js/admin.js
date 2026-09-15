@@ -3,6 +3,167 @@ let monitorsMap = new Map();
 let currentFilter = 'all';
 let searchQuery = '';
 
+// --- Internationalization (i18n: ID & EN) ---
+const i18n = {
+  id: {
+    nav_monitoring: 'Pemantauan',
+    nav_monitors: 'Daftar Monitor',
+    nav_incidents: 'Log Insiden',
+    nav_settings: 'Pengaturan & Tautan',
+    nav_telegram: 'Notifikasi Telegram',
+    nav_backup: 'Backup & Restore',
+    nav_public: 'Status Publik',
+    nav_change_pwd: 'Ubah Kata Sandi',
+    nav_logout: 'Keluar (Sign Out)',
+
+    title_overview_desktop: 'Ringkasan Infrastruktur',
+    title_overview_mobile: 'Ringkasan',
+    title_incidents_desktop: 'Riwayat Insiden & Downtime',
+    title_incidents_mobile: 'Insiden',
+    breadcrumb_monitors: 'UptimePulse / Prober Real-time / Monitor Aktif',
+    breadcrumb_incidents: 'UptimePulse / Siklus Insiden / Catatan Gangguan',
+    top_live_sync: 'Live Sync',
+    btn_add: 'Tambah',
+    btn_monitor: 'Monitor',
+
+    kpi_total: 'TOTAL LAYANAN',
+    kpi_total_sub: 'Target terpantau',
+    kpi_up: 'OPERASIONAL',
+    kpi_up_sub: 'Merespons normal',
+    kpi_down: 'INSIDEN AKTIF',
+    kpi_down_sub_none: 'Tidak ada gangguan',
+    kpi_down_sub_alert: 'Layanan terganggu',
+    kpi_latency: 'RATA-RATA LATENSI',
+    kpi_latency_sub: 'Waktu respons jaringan',
+
+    search_placeholder: 'Cari target berdasarkan nama atau host...',
+    filter_all: 'Semua',
+
+    card_latency: 'Latensi',
+    card_uptime: 'Uptime 24 Jam',
+    card_every: 'Setiap',
+    card_retry: 'Retry',
+    card_pending: 'Menunggu',
+    card_retrying: 'Mencoba Ulang',
+    btn_check_now: 'Cek Sekarang',
+    btn_pause: 'Jeda / Lanjutkan',
+    btn_edit: 'Edit Monitor',
+    btn_delete: 'Hapus Monitor',
+
+    footer_engine: 'UptimePulse Engine • Rust Axum & SQLite WAL',
+    footer_arch: 'Single Static Binary • Konkurensi via Tokio'
+  },
+  en: {
+    nav_monitoring: 'Monitoring',
+    nav_monitors: 'Monitors Grid',
+    nav_incidents: 'Incidents Log',
+    nav_settings: 'Settings & Links',
+    nav_telegram: 'Telegram Alert',
+    nav_backup: 'Backup & Restore',
+    nav_public: 'Public Status',
+    nav_change_pwd: 'Change Password',
+    nav_logout: 'Sign Out',
+
+    title_overview_desktop: 'Infrastructure Overview',
+    title_overview_mobile: 'Overview',
+    title_incidents_desktop: 'Incident History & Downtime Log',
+    title_incidents_mobile: 'Incidents',
+    breadcrumb_monitors: 'UptimePulse / Realtime Prober / Active Monitors',
+    breadcrumb_incidents: 'UptimePulse / Incident Lifecycle / Outage History',
+    top_live_sync: 'Live Sync',
+    btn_add: 'Add',
+    btn_monitor: 'Monitor',
+
+    kpi_total: 'TOTAL SERVICES',
+    kpi_total_sub: 'Monitored endpoints',
+    kpi_up: 'OPERATIONAL',
+    kpi_up_sub: 'Responding normally',
+    kpi_down: 'ACTIVE INCIDENTS',
+    kpi_down_sub_none: 'No downtime detected',
+    kpi_down_sub_alert: 'Services impacted',
+    kpi_latency: 'AVERAGE LATENCY',
+    kpi_latency_sub: 'Overall probe response time',
+
+    search_placeholder: 'Search targets by name or host...',
+    filter_all: 'All',
+
+    card_latency: 'Latency',
+    card_uptime: '24h Uptime',
+    card_every: 'Every',
+    card_retry: 'Retry',
+    card_pending: 'Pending',
+    card_retrying: 'Retrying',
+    btn_check_now: 'Check Now',
+    btn_pause: 'Pause / Resume',
+    btn_edit: 'Edit Monitor',
+    btn_delete: 'Delete Monitor',
+
+    footer_engine: 'UptimePulse Engine • Rust Axum & SQLite WAL',
+    footer_arch: 'Single Static Binary • Concurrency via Tokio'
+  }
+};
+
+let currentLang = localStorage.getItem('uptime_lang') || 'en';
+
+function setLanguage(lang) {
+  if (lang !== 'id' && lang !== 'en') lang = 'en';
+  currentLang = lang;
+  localStorage.setItem('uptime_lang', lang);
+
+  // Update switcher button active state
+  const btnId = document.getElementById('lang-btn-id');
+  const btnEn = document.getElementById('lang-btn-en');
+  if (btnId && btnEn) {
+    btnId.classList.toggle('active', lang === 'id');
+    btnEn.classList.toggle('active', lang === 'en');
+  }
+
+  // Update static text elements with [data-i18n]
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.getAttribute('data-i18n');
+    if (i18n[lang] && i18n[lang][key]) {
+      el.textContent = i18n[lang][key];
+    }
+  });
+
+  // Update placeholder attributes with [data-i18n-placeholder]
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (i18n[lang] && i18n[lang][key]) {
+      el.setAttribute('placeholder', i18n[lang][key]);
+    }
+  });
+
+  // Update dynamic titles
+  updateViewTitles();
+
+  // Re-render monitors to apply translated labels & tooltips
+  renderMonitors();
+  recalcStats();
+}
+
+function updateViewTitles() {
+  const isIncidents = document.getElementById('view-incidents') && document.getElementById('view-incidents').style.display !== 'none';
+  const pageTitle = document.getElementById('page-title');
+  const breadcrumb = document.getElementById('page-breadcrumb');
+
+  if (isIncidents) {
+    if (pageTitle) {
+      pageTitle.innerHTML = `<span class="desktop-title">${i18n[currentLang].title_incidents_desktop}</span><span class="mobile-title">${i18n[currentLang].title_incidents_mobile}</span>`;
+    }
+    if (breadcrumb) {
+      breadcrumb.textContent = i18n[currentLang].breadcrumb_incidents;
+    }
+  } else {
+    if (pageTitle) {
+      pageTitle.innerHTML = `<span class="desktop-title">${i18n[currentLang].title_overview_desktop}</span><span class="mobile-title">${i18n[currentLang].title_overview_mobile}</span>`;
+    }
+    if (breadcrumb) {
+      breadcrumb.textContent = i18n[currentLang].breadcrumb_monitors;
+    }
+  }
+}
+
 // Wrapper fetch untuk menyertakan auth session & token
 async function apiFetch(url, options = {}) {
   options.credentials = 'same-origin';
@@ -174,8 +335,8 @@ function createMonitorWidget(m) {
   const typeClass = m.monitor_type.toLowerCase();
 
   const retryInfo = m.status === 'retrying' 
-    ? `<span style="color: var(--yellow); font-size: 11px; font-weight: 600;">⚠️ Retrying (${m.consecutive_fails || 1}/${m.max_retries || 3})</span>`
-    : `<span>Every ${m.interval_sec}s • Retry ${m.max_retries || 3}x</span>`;
+    ? `<span style="color: var(--yellow); font-size: 11px; font-weight: 600;">⚠️ ${i18n[currentLang].card_retrying} (${m.consecutive_fails || 1}/${m.max_retries || 3})</span>`
+    : `<span>${i18n[currentLang].card_every} ${m.interval_sec}s • ${i18n[currentLang].card_retry} ${m.max_retries || 3}x</span>`;
 
   card.innerHTML = `
     <div class="widget-header">
@@ -192,27 +353,27 @@ function createMonitorWidget(m) {
         </div>
       </div>
       <div class="widget-actions">
-        <button class="btn-icon" title="Check Now" onclick="checkNow(${m.id})">
+        <button class="btn-icon" title="${i18n[currentLang].btn_check_now}" onclick="checkNow(${m.id})">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M23 4v6h-6"></path>
             <path d="M1 20v-6h6"></path>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
           </svg>
         </button>
-        <button class="btn-icon" title="Pause / Resume" onclick="togglePause(${m.id})">
+        <button class="btn-icon" title="${i18n[currentLang].btn_pause}" onclick="togglePause(${m.id})">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="10" y1="15" x2="10" y2="9"></line>
             <line x1="14" y1="15" x2="14" y2="9"></line>
           </svg>
         </button>
-        <button class="btn-icon" title="Edit Monitor" onclick="openEditModal(${m.id})">
+        <button class="btn-icon" title="${i18n[currentLang].btn_edit}" onclick="openEditModal(${m.id})">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
           </svg>
         </button>
-        <button class="btn-icon danger" title="Delete" onclick="deleteMonitor(${m.id})">
+        <button class="btn-icon danger" title="${i18n[currentLang].btn_delete}" onclick="deleteMonitor(${m.id})">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"></polyline>
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -223,11 +384,11 @@ function createMonitorWidget(m) {
 
     <div class="widget-metrics">
       <div class="metric-item">
-        <div class="metric-label">Latency</div>
+        <div class="metric-label">${i18n[currentLang].card_latency}</div>
         <div class="metric-value" id="lat-${m.id}">${latencyText}</div>
       </div>
       <div class="metric-item">
-        <div class="metric-label">24h Uptime</div>
+        <div class="metric-label">${i18n[currentLang].card_uptime}</div>
         <div class="metric-value" id="upt-${m.id}">--%</div>
       </div>
     </div>
@@ -257,8 +418,8 @@ function updateCardMetrics(data) {
   const retryEl = document.getElementById(`retry-info-${m.id}`);
   if (retryEl) {
     retryEl.innerHTML = m.status === 'retrying'
-      ? `<span style="color: var(--yellow); font-size: 11px; font-weight: 600;">⚠️ Retrying (${m.consecutive_fails || 1}/${m.max_retries || 3})</span>`
-      : `<span>Every ${m.interval_sec}s • Retry ${m.max_retries || 3}x</span>`;
+      ? `<span style="color: var(--yellow); font-size: 11px; font-weight: 600;">⚠️ ${i18n[currentLang].card_retrying} (${m.consecutive_fails || 1}/${m.max_retries || 3})</span>`
+      : `<span>${i18n[currentLang].card_every} ${m.interval_sec}s • ${i18n[currentLang].card_retry} ${m.max_retries || 3}x</span>`;
   }
 
   const latEl = document.getElementById(`lat-${m.id}`);
@@ -343,14 +504,14 @@ function recalcStats() {
 
   if (down > 0) {
     incidentDot.className = 'status-dot down';
-    incidentSub.textContent = `${down} target down saat ini`;
+    incidentSub.textContent = currentLang === 'id' ? `${down} target down saat ini` : `${down} service(s) currently down`;
     incidentSub.style.color = 'var(--red)';
   } else {
     incidentDot.className = 'status-dot';
     incidentDot.style.background = 'var(--text-muted)';
     incidentDot.style.boxShadow = 'none';
     incidentDot.style.animation = 'none';
-    incidentSub.textContent = 'No downtime detected';
+    incidentSub.textContent = i18n[currentLang] ? i18n[currentLang].kpi_down_sub_none : 'No downtime detected';
     incidentSub.style.color = 'var(--text-muted)';
   }
 
@@ -853,21 +1014,20 @@ async function switchView(viewName) {
   const incidentsView = document.getElementById('view-incidents');
   const navMonitors = document.getElementById('nav-monitors');
   const navIncidents = document.getElementById('nav-incidents');
-  const pageTitle = document.getElementById('page-title');
 
   if (viewName === 'incidents') {
     monitorsView.style.display = 'none';
     incidentsView.style.display = 'block';
     navMonitors.classList.remove('active');
     navIncidents.classList.add('active');
-    pageTitle.innerHTML = '<span class="desktop-title">Incident History &amp; Downtime Log</span><span class="mobile-title">Incidents</span>';
+    updateViewTitles();
     await loadIncidents();
   } else {
     monitorsView.style.display = 'block';
     incidentsView.style.display = 'none';
     navMonitors.classList.add('active');
     navIncidents.classList.remove('active');
-    pageTitle.innerHTML = '<span class="desktop-title">Infrastructure Overview</span><span class="mobile-title">Overview</span>';
+    updateViewTitles();
   }
 
   // Close mobile sidebar if open
@@ -1063,5 +1223,6 @@ async function handleRestoreBackup(e) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  setLanguage(currentLang);
   checkAuth();
 });

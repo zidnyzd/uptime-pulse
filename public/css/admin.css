@@ -411,6 +411,46 @@
   color: var(--text-muted);
 }
 
+/* Language Switcher Segmented Control in Topbar */
+.lang-switcher {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 2px;
+  gap: 2px;
+  height: 28px;
+}
+
+.lang-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0 8px;
+  height: 22px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lang-btn:hover {
+  color: #f7f8f8;
+}
+
+.lang-btn.active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
 /* Content Body */
 .content-body {
   flex: 1;
@@ -929,6 +969,18 @@
     font-weight: 600;
     line-height: 1.2;
     white-space: nowrap;
+  }
+
+  .lang-switcher {
+    height: 26px;
+    padding: 2px;
+    gap: 1px;
+  }
+
+  .lang-btn {
+    padding: 0 5px;
+    font-size: 10px;
+    height: 20px;
   }
 
   .live-indicator-tag {
