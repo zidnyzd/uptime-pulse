@@ -682,6 +682,37 @@ async function handleChangePassword(e) {
   }
 }
 
+// --- User Profile Dropup Menu (Ke Atas) ---
+function toggleUserDropup(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('user-dropup-menu');
+  const card = document.getElementById('user-profile-card');
+  if (!menu) return;
+
+  const isShown = menu.classList.contains('show');
+  if (isShown) {
+    closeUserDropup();
+  } else {
+    menu.classList.add('show');
+    if (card) card.classList.add('active');
+  }
+}
+
+function closeUserDropup() {
+  const menu = document.getElementById('user-dropup-menu');
+  const card = document.getElementById('user-profile-card');
+  if (menu) menu.classList.remove('show');
+  if (card) card.classList.remove('active');
+}
+
+// Auto-close dropup saat klik di luar area profil
+document.addEventListener('click', (e) => {
+  const sidebarBottom = document.querySelector('.sidebar-bottom');
+  if (sidebarBottom && !sidebarBottom.contains(e.target)) {
+    closeUserDropup();
+  }
+});
+
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

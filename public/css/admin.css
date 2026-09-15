@@ -146,8 +146,9 @@
   color: var(--red);
 }
 
-/* Sisi Kiri Bawah: User Profile Card & Logout */
+/* Sisi Kiri Bawah: User Profile Card & Dropup Menu */
 .sidebar-bottom {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -163,6 +164,19 @@
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--card-border);
   border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.user-profile-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.user-profile-card.active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--blue);
 }
 
 .user-meta-wrap {
@@ -170,6 +184,7 @@
   align-items: center;
   gap: 9px;
   min-width: 0;
+  flex: 1;
 }
 
 .user-avatar-circle {
@@ -188,6 +203,7 @@
 
 .user-text-info {
   min-width: 0;
+  flex: 1;
 }
 
 .user-name-text {
@@ -204,25 +220,108 @@
   color: var(--text-muted);
 }
 
-.btn-logout-tiny {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+.btn-dropup-trigger {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
   border-radius: 6px;
   background: transparent;
-  border: 1px solid transparent;
+  border: none;
   color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color 0.15s, background 0.15s;
 }
 
-.btn-logout-tiny:hover {
-  background: rgba(248, 81, 73, 0.15);
-  border-color: rgba(248, 81, 73, 0.3);
-  color: var(--red);
+.user-profile-card:hover .btn-dropup-trigger {
+  color: #f7f8f8;
+}
+
+/* Floating Dropup Menu (Membuka ke atas) */
+.user-dropup-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: #141821;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  padding: 6px;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 100;
+  animation: dropup-fade-in 0.15s ease-out;
+}
+
+.user-dropup-menu.show {
+  display: flex;
+}
+
+@keyframes dropup-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropup-header {
+  padding: 8px 10px 6px;
+}
+
+.dropup-user-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f7f8f8;
+}
+
+.dropup-user-role {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.dropup-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 4px 0;
+}
+
+.dropup-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dropup-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f7f8f8;
+}
+
+.dropup-item.danger {
+  color: #f87171;
+}
+
+.dropup-item.danger:hover {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
 }
 
 /* ============================================================
