@@ -1,5 +1,6 @@
 use std::time::Instant;
 use tokio::net::TcpStream;
+use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 use crate::models::ProbeResult;
 
@@ -15,6 +16,7 @@ pub async fn probe(
     match monitor_type {
         "http" | "https" => probe_http(monitor_id, target, timeout_duration).await,
         "tcp" => probe_tcp(monitor_id, target, timeout_duration).await,
+        "ping" | "icmp" => probe_ping(monitor_id, target, timeout_sec).await,
         _ => ProbeResult {
             monitor_id,
             is_up: false,
@@ -122,6 +124,117 @@ async fn probe_tcp(monitor_id: i64, target: &str, timeout_duration: Duration) ->
             error_message: Some("Connection timed out".to_string()),
         },
     }
+}
+
+// Melakukan ICMP Ping secara non-blocking via perintah ping sistem (kompatibel penuh di Linux & OpenWrt)
+async fn probe_ping(monitor_id: i64, target: &str, timeout_sec: i64) -> ProbeResult {
+    let host = match sanitize_ping_target(target) {
+        Some(h) => h,
+        None => {
+            return ProbeResult {
+                monitor_id,
+                is_up: false,
+                status_code: None,
+                latency_ms: 0.0,
+                error_message: Some("Format target IP/host tidak valid".to_string()),
+            };
+        }
+    };
+
+    let timeout_val = timeout_sec.clamp(1, 30).to_string();
+    let start = Instant::now();
+
+    // Memanggil ping -c 1 -W <timeout> <host> via Tokio async process
+    let cmd_result = timeout(
+        Duration::from_secs((timeout_sec.max(1) + 2) as u64),
+        Command::new("ping")
+            .args(["-c", "1", "-W", &timeout_val, &host])
+            .output(),
+    )
+    .await;
+
+    let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+    match cmd_result {
+        Ok(Ok(output)) => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+
+            if output.status.success() {
+                let latency = parse_ping_latency(&stdout, elapsed_ms);
+                ProbeResult {
+                    monitor_id,
+                    is_up: true,
+                    status_code: None,
+                    latency_ms: latency,
+                    error_message: None,
+                }
+            } else {
+                let err = if !stderr.trim().is_empty() {
+                    stderr.trim().to_string()
+                } else if stdout.contains("100% packet loss") || stdout.contains("100% loss") {
+                    "100% packet loss".to_string()
+                } else if stdout.contains("Destination Host Unreachable") {
+                    "Host unreachable".to_string()
+                } else {
+                    "Ping failed / no response".to_string()
+                };
+
+                ProbeResult {
+                    monitor_id,
+                    is_up: false,
+                    status_code: None,
+                    latency_ms: (elapsed_ms * 10.0).round() / 10.0,
+                    error_message: Some(err),
+                }
+            }
+        }
+        Ok(Err(e)) => ProbeResult {
+            monitor_id,
+            is_up: false,
+            status_code: None,
+            latency_ms: 0.0,
+            error_message: Some(format!("Eksekusi ping gagal: {}", e)),
+        },
+        Err(_) => ProbeResult {
+            monitor_id,
+            is_up: false,
+            status_code: None,
+            latency_ms: (elapsed_ms * 10.0).round() / 10.0,
+            error_message: Some("Ping request timeout".to_string()),
+        },
+    }
+}
+
+// Sanitasi target ping untuk mencegah injeksi argumen/perintah shell
+fn sanitize_ping_target(target: &str) -> Option<String> {
+    let clean = target
+        .trim()
+        .trim_start_matches("http://")
+        .trim_start_matches("https://")
+        .split('/')
+        .next()?
+        .split(':')
+        .next()?;
+
+    if clean.is_empty() || !clean.chars().all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '_') {
+        return None;
+    }
+    Some(clean.to_string())
+}
+
+// Mengambil angka latency (ms) dari baris output ping
+fn parse_ping_latency(stdout: &str, fallback_ms: f64) -> f64 {
+    for line in stdout.lines() {
+        if let Some(pos) = line.find("time=") {
+            let part = &line[pos + 5..];
+            let num_str: String = part.chars().take_while(|c| c.is_digit(10) || *c == '.').collect();
+            if let Ok(val) = num_str.parse::<f64>() {
+                return (val * 10.0).round() / 10.0;
+            }
+        }
+    }
+    (fallback_ms * 10.0).round() / 10.0
 }
 
 // Menyederhanakan pesan error teknis reqwest agar mudah dibaca pada dashboard

@@ -557,6 +557,7 @@
             <select class="form-control" id="m-type" onchange="handleTypeChange()">
               <option value="http">HTTP(s)</option>
               <option value="tcp">TCP Port</option>
+              <option value="ping">Ping (ICMP)</option>
             </select>
           </div>
           <div class="form-group">
@@ -910,6 +911,9 @@
       if (type === 'tcp') {
         targetLabel.textContent = 'Target Host & Port';
         targetInput.placeholder = '192.168.1.1:80 or example.com:22';
+      } else if (type === 'ping') {
+        targetLabel.textContent = 'Target Host / IP';
+        targetInput.placeholder = '1.1.1.1 or example.com';
       } else {
         targetLabel.textContent = 'Target URL';
         targetInput.placeholder = 'https://example.com';
