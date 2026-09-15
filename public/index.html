@@ -40,6 +40,9 @@
       </div>
     </div>
 
+    <!-- Active Incidents Live Alert (Shown only when an outage occurs) -->
+    <div class="active-incidents-wrap" id="active-incidents-container" style="display: none;"></div>
+
     <!-- Metrics Row -->
     <div class="metrics-row">
       <div class="metric-card">
@@ -65,6 +68,18 @@
     <div class="services-container" id="services-list">
       <div style="padding: 32px; text-align: center; color: var(--text-muted);">
         Loading service status...
+      </div>
+    </div>
+
+    <!-- Past Incidents Activity Section -->
+    <div class="section-header" style="margin-top: 40px;">
+      <div class="section-title">Incident History</div>
+      <div class="section-note">Last 30 days</div>
+    </div>
+
+    <div class="incidents-container" id="incidents-list">
+      <div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px;">
+        No incidents reported in the last 30 days.
       </div>
     </div>
 

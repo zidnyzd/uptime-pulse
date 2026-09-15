@@ -7,7 +7,7 @@ use tracing::{error, info};
 use serde::{Deserialize, Serialize};
 
 use crate::database::DbPool;
-use crate::models::{Heartbeat, Monitor, ProbeResult};
+use crate::models::{Heartbeat, Incident, Monitor, ProbeResult};
 use crate::prober;
 
 // Event yang dipancarkan secara real-time ke web browser via Server-Sent Events (SSE)
@@ -97,6 +97,10 @@ pub async fn run_probe_and_record(
 
     if let Err(e) = Heartbeat::record(db, &result).await {
         error!("Failed to record heartbeat for monitor {}: {}", monitor_id, e);
+    }
+
+    if let Err(e) = Incident::process_probe(db, monitor_id, result.is_up, result.error_message.as_deref()).await {
+        error!("Failed to process incident for monitor {}: {}", monitor_id, e);
     }
 
     let status_str = if result.is_up { "up" } else { "down" };

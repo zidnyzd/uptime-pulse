@@ -263,6 +263,128 @@
   color: var(--text-muted);
 }
 
+/* Active Incidents Alert Banner */
+.active-incidents-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.active-incident-card {
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.incident-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.incident-service-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.incident-status-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(248, 81, 73, 0.2);
+  color: var(--red);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.incident-time {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.incident-detail-text {
+  font-size: 13px;
+  color: #f0f6fc;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Past Incident Activity Feed */
+.incidents-container {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.incident-row {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.incident-row:last-child {
+  border-bottom: none;
+}
+
+.incident-header-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.incident-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f7f8f8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.incident-resolved-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.incident-ongoing-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.incident-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* Footer */
 footer {
   margin-top: 50px;

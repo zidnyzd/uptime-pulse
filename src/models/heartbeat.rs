@@ -69,6 +69,8 @@ pub struct PublicSystemSummary {
     pub operational_services: usize,
     pub incident_services: usize,
     pub monitors: Vec<PublicMonitorSummary>,
+    pub active_incidents: Vec<crate::models::Incident>,
+    pub recent_incidents: Vec<crate::models::Incident>,
 }
 
 impl Heartbeat {
@@ -409,12 +411,17 @@ impl Heartbeat {
             "operational".to_string()
         };
 
+        let active_incidents = crate::models::Incident::list_ongoing(db).await?;
+        let recent_incidents = crate::models::Incident::list_recent(db, 10).await?;
+
         Ok(PublicSystemSummary {
             overall_status,
             total_services: public_items.len(),
             operational_services: up_count,
             incident_services: down_count,
             monitors: public_items,
+            active_incidents,
+            recent_incidents,
         })
     }
 }

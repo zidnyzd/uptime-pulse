@@ -59,8 +59,19 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
              created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
          );
 
+         -- Tabel log insiden downtime & durasi pemulihan
+         CREATE TABLE IF NOT EXISTS incidents (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             monitor_id INTEGER NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,
+             started_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+             resolved_at TEXT,
+             duration_sec INTEGER,
+             error_message TEXT
+         );
+
          CREATE INDEX IF NOT EXISTS idx_hb_mon_time ON heartbeats(monitor_id, checked_at DESC);
          CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+         CREATE INDEX IF NOT EXISTS idx_incidents_mon ON incidents(monitor_id, started_at DESC);
         "
     )?;
 

@@ -107,6 +107,78 @@ function renderPublicView(data) {
     `;
     container.appendChild(row);
   }
+
+  // Active Incidents Live Alert
+  const activeContainer = document.getElementById('active-incidents-container');
+  if (data.active_incidents && data.active_incidents.length > 0) {
+    activeContainer.innerHTML = '';
+    for (const inc of data.active_incidents) {
+      const card = document.createElement('div');
+      card.className = 'active-incident-card';
+      card.innerHTML = `
+        <div class="incident-top">
+          <div class="incident-service-badge">
+            <span class="status-dot down"></span>
+            <span>${escapeHtml(inc.service_name)}</span>
+            <span class="incident-status-tag">Ongoing Outage</span>
+          </div>
+          <div class="incident-time">Started: ${escapeHtml(inc.started_at)}</div>
+        </div>
+        <div class="incident-detail-text">
+          ${escapeHtml(inc.error_message || 'Service is unreachable or returning error status')}
+        </div>
+      `;
+      activeContainer.appendChild(card);
+    }
+    activeContainer.style.display = 'flex';
+  } else {
+    activeContainer.innerHTML = '';
+    activeContainer.style.display = 'none';
+  }
+
+  // Incident History Section (Past 30 Days)
+  const historyContainer = document.getElementById('incidents-list');
+  if (data.recent_incidents && data.recent_incidents.length > 0) {
+    historyContainer.innerHTML = '';
+    for (const inc of data.recent_incidents) {
+      const row = document.createElement('div');
+      row.className = 'incident-row';
+      const isOngoing = inc.is_ongoing;
+      const durationText = inc.duration_sec ? formatDuration(inc.duration_sec) : 'Ongoing';
+      const statusPill = isOngoing 
+        ? `<span class="incident-ongoing-pill">Ongoing Outage</span>`
+        : `<span class="incident-resolved-pill">Resolved in ${durationText}</span>`;
+
+      row.innerHTML = `
+        <div class="incident-header-meta">
+          <div class="incident-name">
+            <span>${escapeHtml(inc.service_name)}</span>
+            ${statusPill}
+          </div>
+          <div class="incident-time">${escapeHtml(inc.started_at)}</div>
+        </div>
+        <div class="incident-desc">
+          ${escapeHtml(inc.error_message || 'Unreachable / Connection Failure')}
+        </div>
+      `;
+      historyContainer.appendChild(row);
+    }
+  } else {
+    historyContainer.innerHTML = `
+      <div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px;">
+        No incidents reported in the last 30 days.
+      </div>
+    `;
+  }
+}
+
+function formatDuration(sec) {
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m < 60) return `${m}m ${s}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
 }
 
 // Koneksi SSE (Server-Sent Events) terkendali untuk update real-time
