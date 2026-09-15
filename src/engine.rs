@@ -10,6 +10,7 @@ use crate::db::{self, DbPool};
 use crate::models::ProbeResult;
 use crate::prober;
 
+// Event yang dipancarkan secara real-time ke web browser via Server-Sent Events (SSE)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProbeEvent {
     pub monitor_id: i64,
@@ -20,9 +21,12 @@ pub struct ProbeEvent {
     pub error_message: Option<String>,
 }
 
+// Channel broadcast Tokio untuk pola 1-ke-banyak (satu hasil probe diterima semua tab browser yang terbuka)
 pub type EventSender = broadcast::Sender<ProbeEvent>;
 
+// Memulai scheduler background loop yang berjalan terus-menerus selama aplikasi aktif
 pub fn start_scheduler(db: DbPool, event_tx: EventSender) {
+    // HashMap in-memory untuk mencatat waktu terakhir tiap monitor dieksekusi
     let last_checked = Arc::new(Mutex::new(HashMap::new()));
     let db_clone = db.clone();
     let tx_clone = event_tx.clone();
@@ -31,7 +35,7 @@ pub fn start_scheduler(db: DbPool, event_tx: EventSender) {
     tokio::spawn(async move {
         info!("UptimePulse engine scheduler started.");
         loop {
-            // Run loop tick every 1 second
+            // Tick interval 1 detik untuk mengevaluasi apakah ada monitor yang sudah jatuh tempo
             sleep(Duration::from_secs(1)).await;
 
             let monitors = match db::list_monitors(&db_clone).await {
@@ -60,13 +64,14 @@ pub fn start_scheduler(db: DbPool, event_tx: EventSender) {
                             }
                         }
                         None => {
-                            // First check immediately
+                            // Cek langsung pada putaran pertama
                             tracker.insert(monitor.id, now);
                             true
                         }
                     }
                 };
 
+                // Setiap probe dieksekusi di tokio::spawn terpisah agar target yang lambat tidak memblokir target lain
                 if should_check {
                     let db_task = db_clone.clone();
                     let tx_task = tx_clone.clone();
@@ -79,6 +84,7 @@ pub fn start_scheduler(db: DbPool, event_tx: EventSender) {
     });
 }
 
+// Menjalankan satu putaran probe, menyimpan rekaman ke SQLite, dan menyiarkan hasil ke SSE
 pub async fn run_probe_and_record(
     db: &DbPool,
     tx: &EventSender,
@@ -94,6 +100,7 @@ pub async fn run_probe_and_record(
     }
 
     let status_str = if result.is_up { "up" } else { "down" };
+    // Broadcast hasil ke semua koneksi SSE aktif
     let _ = tx.send(ProbeEvent {
         monitor_id: result.monitor_id,
         status: status_str.to_string(),

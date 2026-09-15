@@ -23,33 +23,40 @@ use crate::db::{self, DbPool};
 use crate::engine::{run_probe_and_record, EventSender};
 use crate::models::CreateMonitorInput;
 
+// Macro RustEmbed memasukkan semua file di dalam folder public/ langsung ke binary saat kompilasi
 #[derive(RustEmbed)]
 #[folder = "public/"]
 struct Assets;
 
+// State global yang dibagikan ke semua handler endpoint Axum
 pub struct AppState {
     pub db: DbPool,
     pub event_tx: EventSender,
 }
 
+// Konfigurasi routing REST API, SSE streaming, dan static web assets
 pub fn create_router(state: Arc<AppState>) -> Router {
     Router::new()
-        // API routes
+        // Endpoint data status publik (tanpa mengekspos target sensitif)
         .route("/api/public/summary", get(get_public_summary_handler))
+        // Endpoint manajemen admin
         .route("/api/monitors", get(list_monitors).post(create_monitor))
         .route("/api/monitors/{id}", get(get_monitor_detail))
         .route("/api/monitors/{id}", delete(delete_monitor))
         .route("/api/monitors/{id}/pause", post(toggle_pause))
         .route("/api/monitors/{id}/check", post(trigger_check))
+        // Stream event real-time ke browser
         .route("/api/events", get(sse_handler))
+        // Halaman panel admin
         .route("/admin", get(admin_page_handler))
-        // Static assets fallback
+        // Fallback untuk melayani file static embedded (index.html, css, js)
         .fallback(static_handler)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
 
+// Menyajikan ringkasan status publik untuk tampilan user utama
 async fn get_public_summary_handler(
     State(state): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
@@ -59,6 +66,7 @@ async fn get_public_summary_handler(
     }
 }
 
+// Menyajikan halaman admin.html dari memori binary
 async fn admin_page_handler() -> Response {
     match Assets::get("admin.html") {
         Some(content) => {
@@ -68,6 +76,7 @@ async fn admin_page_handler() -> Response {
     }
 }
 
+// Mengambil seluruh daftar target monitor yang ada di database
 async fn list_monitors(
     State(state): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
@@ -77,6 +86,7 @@ async fn list_monitors(
     }
 }
 
+// Mengambil detail satu monitor beserta riwayat latency sparkline
 async fn get_monitor_detail(
     State(state): State<Arc<AppState>>,
     Path(id): Path<i64>,
@@ -88,6 +98,7 @@ async fn get_monitor_detail(
     }
 }
 
+// Menambahkan target baru dan langsung memicu probe pertama agar status segera terisi
 async fn create_monitor(
     State(state): State<Arc<AppState>>,
     Json(input): Json<CreateMonitorInput>,
@@ -99,7 +110,7 @@ async fn create_monitor(
     let input_clone = input.clone();
     match db::create_monitor(&state.db, input).await {
         Ok(id) => {
-            // Trigger initial probe immediately in background
+            // Trigger probe pertama segera di background task terpisah
             let db_clone = state.db.clone();
             let tx_clone = state.event_tx.clone();
             tokio::spawn(async move {
@@ -120,6 +131,7 @@ async fn create_monitor(
     }
 }
 
+// Menghapus target monitor dari database
 async fn delete_monitor(
     State(state): State<Arc<AppState>>,
     Path(id): Path<i64>,
@@ -131,6 +143,7 @@ async fn delete_monitor(
     }
 }
 
+// Mengubah status aktif / pause pada monitor
 async fn toggle_pause(
     State(state): State<Arc<AppState>>,
     Path(id): Path<i64>,
@@ -142,6 +155,7 @@ async fn toggle_pause(
     }
 }
 
+// Memicu manual re-check seketika tanpa menunggu siklus interval
 async fn trigger_check(
     State(state): State<Arc<AppState>>,
     Path(id): Path<i64>,
@@ -165,9 +179,11 @@ async fn trigger_check(
     }
 }
 
+// Handler Server-Sent Events (SSE) yang mengalirkan pembaruan status ke browser secara searah
 async fn sse_handler(
     State(state): State<Arc<AppState>>,
 ) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
+    // Masing-masing koneksi HTTP yang tersambung membuat subscriber baru ke broadcast channel
     let rx = state.event_tx.subscribe();
     let stream = BroadcastStream::new(rx).filter_map(|msg| match msg {
         Ok(event) => {
@@ -177,6 +193,7 @@ async fn sse_handler(
         Err(_) => None,
     });
 
+    // KeepAlive 15 detik untuk mencegah koneksi diputus oleh reverse proxy / gateway
     Sse::new(stream).keep_alive(
         KeepAlive::new()
             .interval(Duration::from_secs(15))
@@ -184,6 +201,7 @@ async fn sse_handler(
     )
 }
 
+// Melayani file statis dari memori binary (HTML, CSS, JS) dengan auto mime detection
 async fn static_handler(uri: Uri) -> Response {
     let mut path = uri.path().trim_start_matches('/');
     if path.is_empty() {
@@ -196,7 +214,7 @@ async fn static_handler(uri: Uri) -> Response {
             ([(header::CONTENT_TYPE, mime.as_ref())], content.data).into_response()
         }
         None => {
-            // SPA fallback: return index.html if file not found
+            // SPA fallback: jika path tidak cocok dengan file fisik, arahkan ke index.html
             match Assets::get("index.html") {
                 Some(content) => {
                     ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], content.data)

@@ -3,12 +3,16 @@ use tokio::sync::Mutex;
 use rusqlite::{params, Connection, Result};
 use crate::models::{CreateMonitorInput, Heartbeat, Monitor, MonitorDetail, ProbeResult};
 
+// Arc<Mutex<Connection>> memungkinkan koneksi SQLite dibagi dan diakses dengan aman
+// antar worker task Tokio yang berjalan asynchronous tanpa race condition.
 pub type DbPool = Arc<Mutex<Connection>>;
 
+// Inisialisasi SQLite database lokal dengan pragma optimal untuk performa & efisiensi
 pub fn init_db(db_path: &str) -> Result<DbPool> {
     let conn = Connection::open(db_path)?;
     
-    // SQLite performance & safety pragmas
+    // WAL (Write-Ahead Logging) memisahkan operasi baca & tulis sehingga query read tidak memblokir write
+    // busy_timeout memberi toleransi 5000ms agar koneksi menunggu jika file SQLite sedang terkunci
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
@@ -46,6 +50,7 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
     Ok(Arc::new(Mutex::new(conn)))
 }
 
+// Mengambil seluruh daftar monitor untuk panel admin
 pub async fn list_monitors(db: &DbPool) -> Result<Vec<Monitor>> {
     let conn = db.lock().await;
     let mut stmt = conn.prepare(
@@ -76,6 +81,7 @@ pub async fn list_monitors(db: &DbPool) -> Result<Vec<Monitor>> {
     Ok(list)
 }
 
+// Mengambil detail monitor spesifik beserta riwayat heartbeat terakhir & kalkulasi 24 jam
 pub async fn get_monitor_detail(db: &DbPool, id: i64) -> Result<Option<MonitorDetail>> {
     let conn = db.lock().await;
     let mut stmt = conn.prepare(
@@ -105,7 +111,7 @@ pub async fn get_monitor_detail(db: &DbPool, id: i64) -> Result<Option<MonitorDe
         Err(e) => return Err(e),
     };
 
-    // Fetch recent 30 heartbeats
+    // Ambil 30 heartbeat terakhir untuk visualisasi sparkline grafik
     let mut hb_stmt = conn.prepare(
         "SELECT id, monitor_id, is_up, status_code, latency_ms, error_message, checked_at
          FROM heartbeats WHERE monitor_id = ?1 ORDER BY id DESC LIMIT 30"
@@ -127,10 +133,10 @@ pub async fn get_monitor_detail(db: &DbPool, id: i64) -> Result<Option<MonitorDe
     for hb in hb_rows {
         heartbeats.push(hb?);
     }
-    // Reverse to chronological order (oldest to newest for sparkline)
+    // Urutkan kronologis dari terlama ke terbaru agar grafik bar digambar dari kiri ke kanan
     heartbeats.reverse();
 
-    // Calculate 24h stats
+    // Kalkulasi agregat persentase uptime dan rata-rata latency 24 jam terakhir
     let mut stats_stmt = conn.prepare(
         "SELECT COUNT(*), SUM(CASE WHEN is_up = 1 THEN 1 ELSE 0 END), AVG(CASE WHEN is_up = 1 THEN latency_ms ELSE NULL END)
          FROM heartbeats WHERE monitor_id = ?1 AND checked_at >= datetime('now', '-1 day', 'localtime')"
@@ -158,6 +164,7 @@ pub async fn get_monitor_detail(db: &DbPool, id: i64) -> Result<Option<MonitorDe
     }))
 }
 
+// Menambahkan entri monitor baru ke database
 pub async fn create_monitor(db: &DbPool, input: CreateMonitorInput) -> Result<i64> {
     let conn = db.lock().await;
     conn.execute(
@@ -168,12 +175,14 @@ pub async fn create_monitor(db: &DbPool, input: CreateMonitorInput) -> Result<i6
     Ok(conn.last_insert_rowid())
 }
 
+// Menghapus monitor beserta rekaman heartbeat terkait via cascade constraint
 pub async fn delete_monitor(db: &DbPool, id: i64) -> Result<bool> {
     let conn = db.lock().await;
     let affected = conn.execute("DELETE FROM monitors WHERE id = ?1", params![id])?;
     Ok(affected > 0)
 }
 
+// Mengaktifkan atau menonaktifkan sementara pemeriksaan berkala pada suatu target
 pub async fn toggle_pause_monitor(db: &DbPool, id: i64) -> Result<bool> {
     let conn = db.lock().await;
     let affected = conn.execute(
@@ -186,11 +195,12 @@ pub async fn toggle_pause_monitor(db: &DbPool, id: i64) -> Result<bool> {
     Ok(affected > 0)
 }
 
+// Mencatat hasil probe dan memangkas riwayat lama agar ukuran file database tetap kecil
 pub async fn record_heartbeat(db: &DbPool, result: &ProbeResult) -> Result<()> {
     let conn = db.lock().await;
     let status_str = if result.is_up { "up" } else { "down" };
 
-    // Update monitor status
+    // Update status ringkasan pada entitas monitor
     conn.execute(
         "UPDATE monitors 
          SET status = ?1, last_latency_ms = ?2, last_check_at = datetime('now', 'localtime')
@@ -198,7 +208,7 @@ pub async fn record_heartbeat(db: &DbPool, result: &ProbeResult) -> Result<()> {
         params![status_str, result.latency_ms, result.monitor_id],
     )?;
 
-    // Insert heartbeat
+    // Catat baris baru ke tabel log heartbeats
     conn.execute(
         "INSERT INTO heartbeats (monitor_id, is_up, status_code, latency_ms, error_message)
          VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -211,7 +221,7 @@ pub async fn record_heartbeat(db: &DbPool, result: &ProbeResult) -> Result<()> {
         ],
     )?;
 
-    // Auto-prune old heartbeats (keep last 500 per monitor to save space on flash/RAM)
+    // Pembatasan log: Simpan maksimal 500 riwayat terakhir per target untuk mencegah flash memory router aus
     conn.execute(
         "DELETE FROM heartbeats 
          WHERE monitor_id = ?1 AND id NOT IN (
@@ -223,6 +233,7 @@ pub async fn record_heartbeat(db: &DbPool, result: &ProbeResult) -> Result<()> {
     Ok(())
 }
 
+// Struktur data publik untuk disajikan ke user umum di halaman status utama
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct PublicMonitorSummary {
     pub id: i64,
@@ -242,6 +253,7 @@ pub struct PublicSystemSummary {
     pub monitors: Vec<PublicMonitorSummary>,
 }
 
+// Mengumpulkan agregasi status publik tanpa membocorkan endpoint target / IP sensitif
 pub async fn get_public_summary(db: &DbPool) -> Result<PublicSystemSummary> {
     let monitors = list_monitors(db).await?;
     let mut public_items = Vec::new();
