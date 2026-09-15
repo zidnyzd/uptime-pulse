@@ -69,6 +69,12 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
              error_message TEXT
          );
 
+         -- Tabel konfigurasi pengaturan aplikasi (Telegram, notifikasi, dll)
+         CREATE TABLE IF NOT EXISTS settings (
+             key TEXT PRIMARY KEY,
+             value TEXT NOT NULL
+         );
+
          CREATE INDEX IF NOT EXISTS idx_hb_mon_time ON heartbeats(monitor_id, checked_at DESC);
          CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
          CREATE INDEX IF NOT EXISTS idx_incidents_mon ON incidents(monitor_id, started_at DESC);

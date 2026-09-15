@@ -23,45 +23,83 @@ impl Incident {
         is_up: bool,
         error_message: Option<&str>,
     ) -> Result<()> {
-        let conn = db.lock().await;
+        let mut trigger_down_info: Option<(String, String, String, String)> = None;
+        let mut trigger_up_info: Option<(String, String, i64, String)> = None;
 
-        if !is_up {
-            // Cek apakah sudah ada insiden aktif yang belum terselesaikan
-            let open_incident_id: Option<i64> = conn
-                .query_row(
-                    "SELECT id FROM incidents WHERE monitor_id = ?1 AND resolved_at IS NULL ORDER BY id DESC LIMIT 1",
-                    params![monitor_id],
-                    |r| r.get(0),
-                )
-                .optional()?;
+        {
+            let conn = db.lock().await;
 
-            if open_incident_id.is_none() {
-                // Catat dimulainya insiden baru
-                conn.execute(
-                    "INSERT INTO incidents (monitor_id, started_at, error_message)
-                     VALUES (?1, datetime('now', 'localtime'), ?2)",
-                    params![monitor_id, error_message],
-                )?;
+            if !is_up {
+                // Cek apakah sudah ada insiden aktif yang belum terselesaikan
+                let open_incident_id: Option<i64> = conn
+                    .query_row(
+                        "SELECT id FROM incidents WHERE monitor_id = ?1 AND resolved_at IS NULL ORDER BY id DESC LIMIT 1",
+                        params![monitor_id],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+
+                if open_incident_id.is_none() {
+                    let now_str: String = conn.query_row("SELECT datetime('now', 'localtime')", [], |r| r.get(0))?;
+                    // Catat dimulainya insiden baru
+                    conn.execute(
+                        "INSERT INTO incidents (monitor_id, started_at, error_message)
+                         VALUES (?1, ?2, ?3)",
+                        params![monitor_id, now_str, error_message],
+                    )?;
+
+                    if let Ok(mon_info) = conn.query_row::<(String, String), _, _>(
+                        "SELECT name, target FROM monitors WHERE id = ?1",
+                        params![monitor_id],
+                        |r| Ok((r.get(0)?, r.get(1)?)),
+                    ) {
+                        trigger_down_info = Some((mon_info.0, mon_info.1, error_message.unwrap_or("Unknown error").to_string(), now_str));
+                    }
+                }
+            } else {
+                // Jika server sudah UP, selesaikan insiden yang masih terbuka dan hitung durasi downtime-nya
+                let open_incident: Option<i64> = conn
+                    .query_row(
+                        "SELECT id FROM incidents WHERE monitor_id = ?1 AND resolved_at IS NULL ORDER BY id DESC LIMIT 1",
+                        params![monitor_id],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+
+                if let Some(inc_id) = open_incident {
+                    let now_str: String = conn.query_row("SELECT datetime('now', 'localtime')", [], |r| r.get(0))?;
+                    conn.execute(
+                        "UPDATE incidents 
+                         SET resolved_at = ?2,
+                             duration_sec = MAX(1, CAST((strftime('%s', ?2) - strftime('%s', started_at)) AS INTEGER))
+                         WHERE id = ?1",
+                        params![inc_id, now_str],
+                    )?;
+
+                    let duration_sec: i64 = conn.query_row(
+                        "SELECT duration_sec FROM incidents WHERE id = ?1",
+                        params![inc_id],
+                        |r| r.get(0),
+                    ).unwrap_or(1);
+
+                    if let Ok(mon_info) = conn.query_row::<(String, String), _, _>(
+                        "SELECT name, target FROM monitors WHERE id = ?1",
+                        params![monitor_id],
+                        |r| Ok((r.get(0)?, r.get(1)?)),
+                    ) {
+                        trigger_up_info = Some((mon_info.0, mon_info.1, duration_sec, now_str));
+                    }
+                }
             }
-        } else {
-            // Jika server sudah UP, selesaikan insiden yang masih terbuka dan hitung durasi downtime-nya
-            let open_incident: Option<i64> = conn
-                .query_row(
-                    "SELECT id FROM incidents WHERE monitor_id = ?1 AND resolved_at IS NULL ORDER BY id DESC LIMIT 1",
-                    params![monitor_id],
-                    |r| r.get(0),
-                )
-                .optional()?;
+        } // Lock connection dilepas sebelum kirim notifikasi async
 
-            if let Some(inc_id) = open_incident {
-                conn.execute(
-                    "UPDATE incidents 
-                     SET resolved_at = datetime('now', 'localtime'),
-                         duration_sec = MAX(1, CAST((strftime('%s', 'now', 'localtime') - strftime('%s', started_at)) AS INTEGER))
-                     WHERE id = ?1",
-                    params![inc_id],
-                )?;
-            }
+        // Kirim alert Telegram jika terjadi perubahan state (DOWN baru atau RECOVERY)
+        if let Some((name, target, err, started_at)) = trigger_down_info {
+            crate::models::TelegramSettings::notify_down(db, &name, &target, &err, &started_at).await;
+        }
+
+        if let Some((name, target, dur, resolved_at)) = trigger_up_info {
+            crate::models::TelegramSettings::notify_recovery(db, &name, &target, dur, &resolved_at).await;
         }
 
         Ok(())

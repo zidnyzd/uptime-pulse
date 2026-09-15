@@ -503,6 +503,123 @@ function escapeHtml(str) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// --- Telegram Notification Settings ---
+async function openTelegramModal() {
+  document.getElementById('telegram-modal').style.display = 'flex';
+  const statusMsg = document.getElementById('tg-status-msg');
+  statusMsg.style.display = 'none';
+  await loadTelegramSettings();
+}
+
+function closeTelegramModal() {
+  document.getElementById('telegram-modal').style.display = 'none';
+}
+
+async function loadTelegramSettings() {
+  try {
+    const res = await apiFetch('/api/settings/telegram');
+    if (res.ok) {
+      const cfg = await res.json();
+      document.getElementById('tg-enabled').checked = cfg.enabled;
+      document.getElementById('tg-bot-token').value = cfg.bot_token || '';
+      document.getElementById('tg-chat-id').value = cfg.chat_id || '';
+      document.getElementById('tg-thread-id').value = cfg.thread_id || '';
+    }
+  } catch (err) {
+    console.error('Failed to load telegram settings:', err);
+  }
+}
+
+async function handleSaveTelegramSettings(e) {
+  e.preventDefault();
+  const threadVal = document.getElementById('tg-thread-id').value.trim();
+  const payload = {
+    enabled: document.getElementById('tg-enabled').checked,
+    bot_token: document.getElementById('tg-bot-token').value.trim(),
+    chat_id: document.getElementById('tg-chat-id').value.trim(),
+    thread_id: threadVal ? parseInt(threadVal) : null,
+  };
+
+  const statusMsg = document.getElementById('tg-status-msg');
+  const saveBtn = document.getElementById('btn-tg-save');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+
+  try {
+    const res = await apiFetch('/api/settings/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      statusMsg.textContent = 'Pengaturan Telegram berhasil disimpan!';
+      statusMsg.style.color = 'var(--green)';
+      statusMsg.style.display = 'block';
+      setTimeout(closeTelegramModal, 1200);
+    } else {
+      const err = await res.text();
+      statusMsg.textContent = 'Gagal menyimpan: ' + err;
+      statusMsg.style.color = 'var(--red)';
+      statusMsg.style.display = 'block';
+    }
+  } catch (err) {
+    statusMsg.textContent = 'Error: ' + err;
+    statusMsg.style.color = 'var(--red)';
+    statusMsg.style.display = 'block';
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save Settings';
+  }
+}
+
+async function handleTestTelegram() {
+  const threadVal = document.getElementById('tg-thread-id').value.trim();
+  const payload = {
+    enabled: true, // test mode
+    bot_token: document.getElementById('tg-bot-token').value.trim(),
+    chat_id: document.getElementById('tg-chat-id').value.trim(),
+    thread_id: threadVal ? parseInt(threadVal) : null,
+  };
+
+  if (!payload.bot_token || !payload.chat_id) {
+    alert('Harap isi Bot Token dan Chat ID terlebih dahulu.');
+    return;
+  }
+
+  const testBtn = document.getElementById('btn-tg-test');
+  const statusMsg = document.getElementById('tg-status-msg');
+  testBtn.disabled = true;
+  testBtn.textContent = 'Sending...';
+  statusMsg.style.display = 'none';
+
+  try {
+    const res = await apiFetch('/api/settings/telegram/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      statusMsg.textContent = data.message || 'Pesan tes berhasil dikirim!';
+      statusMsg.style.color = 'var(--green)';
+      statusMsg.style.display = 'block';
+    } else {
+      statusMsg.textContent = 'Gagal mengirim pesan: ' + (data.error || 'Cek kembali Token/ID');
+      statusMsg.style.color = 'var(--red)';
+      statusMsg.style.display = 'block';
+    }
+  } catch (err) {
+    statusMsg.textContent = 'Error koneksi: ' + err;
+    statusMsg.style.color = 'var(--red)';
+    statusMsg.style.display = 'block';
+  } finally {
+    testBtn.disabled = false;
+    testBtn.textContent = 'Test Message';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   checkAuth();
 });

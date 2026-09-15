@@ -26,6 +26,13 @@
         </div>
       </div>
       <div class="header-actions">
+        <button class="btn btn-sm" onclick="openTelegramModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 2L11 13"></path>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+          <span>Telegram Alert</span>
+        </button>
         <a href="/" class="btn btn-sm">View Public Status</a>
         <button class="btn btn-sm" id="btn-logout" onclick="handleLogout()">Logout</button>
       </div>
@@ -181,6 +188,64 @@
         <div class="modal-footer">
           <button type="button" class="btn" onclick="closeAddModal()">Cancel</button>
           <button type="submit" class="btn btn-primary">Save Monitor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Telegram Settings Modal -->
+  <div class="modal-overlay" id="telegram-modal">
+    <div class="modal" style="max-width: 460px;">
+      <div class="modal-header">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2">
+            <path d="M22 2L11 13"></path>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+          <span>Telegram Notifications</span>
+        </div>
+        <button class="btn-icon" onclick="closeTelegramModal()">&times;</button>
+      </div>
+
+      <form id="telegram-form" onsubmit="handleSaveTelegramSettings(event)">
+        <div class="form-group" style="display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.03); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--card-border);">
+          <input type="checkbox" id="tg-enabled" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--green);">
+          <label for="tg-enabled" style="margin: 0; cursor: pointer; font-size: 13px; font-weight: 500; text-transform: none; color: #f7f8f8;">
+            Enable Telegram Downtime &amp; Recovery Alerts
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label>Bot Token</label>
+          <input type="text" class="form-control" id="tg-bot-token" placeholder="123456789:ABCdefGhIJKlmNoPQRstuvWXyz" required>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Dapatkan token dari @BotFather di Telegram</div>
+        </div>
+
+        <div class="form-group">
+          <label>Chat ID</label>
+          <input type="text" class="form-control" id="tg-chat-id" placeholder="-1001234567890 atau ID user" required>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">ID akun pribadi, grup, atau channel (-100...)</div>
+        </div>
+
+        <div class="form-group">
+          <label style="display: flex; justify-content: space-between;">
+            <span>Message Thread ID (Topic)</span>
+            <span style="color: var(--blue); font-size: 10px;">Opsional</span>
+          </label>
+          <input type="number" class="form-control" id="tg-thread-id" placeholder="e.g. 42 (kosongkan jika bukan forum/topic)">
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Khusus Telegram Supergroup dengan fitur Forum / Topic terpisah</div>
+        </div>
+
+        <div id="tg-status-msg" style="font-size: 12px; margin-bottom: 12px; display: none;"></div>
+
+        <div class="modal-footer" style="display: flex; justify-content: space-between;">
+          <button type="button" class="btn btn-sm" id="btn-tg-test" onclick="handleTestTelegram()">
+            Test Message
+          </button>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-sm" onclick="closeTelegramModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm" id="btn-tg-save">Save Settings</button>
+          </div>
         </div>
       </form>
     </div>

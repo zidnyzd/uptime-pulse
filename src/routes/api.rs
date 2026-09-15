@@ -9,6 +9,7 @@ use crate::controllers::{
     auth_controller::{self, AuthControllerState},
     monitor_controller::{self, MonitorControllerState},
     public_controller::{self, PublicControllerState},
+    setting_controller::{self, SettingControllerState},
 };
 use crate::database::DbPool;
 use crate::engine::EventSender;
@@ -52,10 +53,25 @@ pub fn build_api_router(db: DbPool, event_tx: EventSender) -> Router {
         .route("/api/monitors/{id}/pause", post(monitor_controller::toggle_pause))
         .route("/api/monitors/{id}/check", post(monitor_controller::check))
         .with_state(monitor_controller_state)
+        .route_layer(from_fn_with_state(auth_mw_state.clone(), require_admin_auth));
+
+    let setting_controller_state = Arc::new(SettingControllerState { db: db.clone() });
+    let admin_setting_routes = Router::new()
+        .route(
+            "/api/settings/telegram",
+            get(setting_controller::get_telegram_settings)
+                .post(setting_controller::save_telegram_settings),
+        )
+        .route(
+            "/api/settings/telegram/test",
+            post(setting_controller::test_telegram_notification),
+        )
+        .with_state(setting_controller_state)
         .route_layer(from_fn_with_state(auth_mw_state, require_admin_auth));
 
     Router::new()
         .merge(auth_routes)
         .merge(public_routes)
         .merge(admin_monitor_routes)
+        .merge(admin_setting_routes)
 }
