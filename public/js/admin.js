@@ -180,8 +180,8 @@ function createMonitorWidget(m) {
           <div class="status-dot ${statusClass}" id="dot-${m.id}"></div>
         </div>
         <div class="widget-name-wrap">
-          <div class="widget-name" title="${escapeHtml(m.name)}">
-            <span>${escapeHtml(m.name)}</span>
+          <div class="widget-name-header">
+            <span class="widget-name-title" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</span>
             <span class="type-pill ${typeClass}">${m.monitor_type}</span>
           </div>
           <div class="widget-endpoint" title="${escapeHtml(m.target)}">${escapeHtml(m.target)}</div>
@@ -655,14 +655,14 @@ async function switchView(viewName) {
     incidentsView.style.display = 'block';
     navMonitors.classList.remove('active');
     navIncidents.classList.add('active');
-    pageTitle.textContent = 'Incident History & Downtime Log';
+    pageTitle.innerHTML = '<span class="desktop-title">Incident History &amp; Downtime Log</span><span class="mobile-title">Incidents</span>';
     await loadIncidents();
   } else {
     monitorsView.style.display = 'block';
     incidentsView.style.display = 'none';
     navMonitors.classList.add('active');
     navIncidents.classList.remove('active');
-    pageTitle.textContent = 'Infrastructure Overview';
+    pageTitle.innerHTML = '<span class="desktop-title">Infrastructure Overview</span><span class="mobile-title">Overview</span>';
   }
 
   // Close mobile sidebar if open

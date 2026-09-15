@@ -285,6 +285,10 @@
   color: #f7f8f8;
 }
 
+.mobile-title {
+  display: none;
+}
+
 .page-breadcrumb {
   font-size: 11px;
   color: var(--text-muted);
@@ -523,17 +527,22 @@
   flex: 1;
 }
 
-.widget-name {
-  font-size: 15px;
+.widget-name-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.widget-name-title {
+  font-size: 14px;
   font-weight: 600;
   color: #f7f8f8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: flex;
-  align-items: center;
-  gap: 8px;
   min-width: 0;
+  flex: 1;
 }
 
 .type-pill {
@@ -799,36 +808,99 @@
 
 @media (max-width: 640px) {
   .top-navbar {
-    padding: 0 16px;
+    height: 56px;
+    min-height: 56px;
+    padding: 0 14px;
+  }
+
+  .page-breadcrumb {
+    display: none;
+  }
+
+  .desktop-title {
+    display: none;
+  }
+
+  .mobile-title {
+    display: inline;
+  }
+
+  .page-headline-title {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .live-indicator-tag {
+    padding: 6px;
+    border-radius: 50%;
+  }
+
+  .live-indicator-tag span:not(.status-dot) {
+    display: none;
+  }
+
+  .desktop-text-ext {
+    display: none;
+  }
+
+  .top-nav-right .btn-primary {
+    padding: 6px 12px;
+    height: 32px;
+    font-size: 12px;
+    white-space: nowrap;
+    gap: 6px;
   }
 
   .content-body {
-    padding: 16px 14px 40px;
+    padding: 14px 12px 36px;
   }
 
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 8px;
+    margin-bottom: 14px;
   }
 
   .kpi-card {
-    padding: 12px 14px;
+    padding: 10px 12px;
+    min-height: 80px;
+  }
+
+  .kpi-header {
+    margin-bottom: 4px;
+  }
+
+  .kpi-label {
+    font-size: 10px;
   }
 
   .kpi-val {
-    font-size: 20px;
+    font-size: 18px;
+  }
+
+  .kpi-sub {
+    font-size: 10px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
   }
 
   .toolbar {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: 8px;
+    margin-bottom: 14px;
   }
 
   .toolbar-left {
     flex-direction: column;
     align-items: stretch;
     width: 100%;
+    gap: 8px;
   }
 
   .search-box {
@@ -836,35 +908,82 @@
   }
 
   .search-input {
-    height: 34px;
-    font-size: 12px;
+    height: 36px;
+    font-size: 13px;
   }
 
   .filter-pills {
+    display: flex;
+    gap: 6px;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .filter-pills::-webkit-scrollbar {
+    display: none;
   }
 
   .filter-pill {
-    flex: 1;
+    padding: 6px 14px;
+    font-size: 12px;
+    height: 32px;
+    min-height: 32px;
+    white-space: nowrap;
+    flex: 1 0 auto;
     text-align: center;
-    height: 30px;
-    padding: 5px 10px;
   }
 
   .widget-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
-  .btn-icon {
-    width: 32px;
-    height: 32px;
+  .widget-card {
+    padding: 14px 14px;
+    gap: 12px;
+  }
+
+  .widget-header {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .widget-name-title {
+    font-size: 13px;
+  }
+
+  .widget-endpoint {
+    font-size: 11px;
+  }
+
+  .widget-actions {
+    gap: 4px;
+  }
+
+  .widget-actions .btn-icon {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+  }
+
+  .widget-metrics {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .metric-value {
+    font-size: 14px;
   }
 
   .bottom-bar {
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     text-align: center;
-    padding: 14px 16px;
+    padding: 12px 14px;
+    font-size: 10px;
   }
 
   .modal {
