@@ -431,16 +431,101 @@
       margin-bottom: 16px;
     }
 
-    @media (max-width: 768px) {
+    /* Responsive Reflow (Desktop -> Tablet -> Mobile) */
+    @media (max-width: 860px) {
       .monitor-card {
-        grid-template-columns: 1fr;
-        gap: 14px;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
       }
       .bars-container {
+        grid-column: 1 / -1;
         justify-content: flex-start;
       }
-      .header-actions .btn-text {
-        display: none;
+      .card-actions {
+        grid-column: 1 / -1;
+        justify-content: flex-end;
+        border-top: 1px solid var(--card-border);
+        padding-top: 12px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 20px 14px 60px;
+      }
+
+      header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+
+      .header-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        width: 100%;
+      }
+
+      .header-actions .btn {
+        flex: 1 1 auto;
+        justify-content: center;
+        min-height: 44px;
+      }
+
+      .banner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 16px;
+      }
+
+      .banner-stats {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        border-top: 1px solid var(--card-border);
+        padding-top: 14px;
+      }
+
+      .stat-item {
+        text-align: center;
+      }
+
+      .monitor-card {
+        grid-template-columns: 1fr;
+        padding: 16px;
+        gap: 14px;
+      }
+
+      .monitor-target {
+        max-width: 100%;
+      }
+
+      .metric-group {
+        display: flex;
+        justify-content: space-around;
+        background: rgba(0, 0, 0, 0.25);
+        padding: 10px 14px;
+        border-radius: 8px;
+      }
+
+      .bars-container {
+        overflow-x: auto;
+        padding-bottom: 4px;
+        justify-content: flex-start;
+      }
+
+      .btn-icon {
+        width: 44px;
+        height: 44px;
+      }
+
+      .modal {
+        margin: 16px;
+        padding: 20px;
       }
     }
   </style>
