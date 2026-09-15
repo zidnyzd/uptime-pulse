@@ -9,82 +9,108 @@
 </head>
 <body>
   <div class="container">
-    <!-- Top Bar -->
-    <div class="top-bar">
+    <!-- Top Bar Navigation -->
+    <header class="top-bar">
       <div class="brand">
         <div class="brand-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
           </svg>
         </div>
-        <div class="brand-name">System Status</div>
+        <div class="brand-name" data-i18n="brand_title">System Status</div>
       </div>
-      <div class="live-badge">
-        <div class="live-dot"></div>
-        <span>Live updates active</span>
-      </div>
-    </div>
 
-    <!-- Hero Banner -->
-    <div class="hero-banner" id="hero-box">
-      <div class="hero-content">
-        <div class="hero-icon-box" id="hero-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <div class="top-bar-right">
+        <!-- Language Switcher (ID / EN) -->
+        <div class="lang-switcher" title="Switch Language / Ganti Bahasa">
+          <button type="button" class="lang-btn" id="lang-btn-id" onclick="setLanguage('id')">ID</button>
+          <button type="button" class="lang-btn active" id="lang-btn-en" onclick="setLanguage('en')">EN</button>
+        </div>
+
+        <div class="live-badge">
+          <div class="live-dot"></div>
+          <span data-i18n="live_active">Live updates active</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero Status Section (Open & Airy Vercel/Stripe Style) -->
+    <section class="hero-status-wrap" id="hero-wrap">
+      <div class="hero-status-inner">
+        <div class="hero-status-badge" id="hero-badge">
+          <div class="hero-pulse-dot" id="hero-pulse-dot"></div>
+          <svg id="hero-badge-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
         </div>
-        <div>
-          <div class="hero-title" id="hero-title">Checking System Health...</div>
-          <div class="hero-subtitle" id="hero-subtitle">Fetching current metrics from probes</div>
+        <div class="hero-text-wrap">
+          <h1 class="hero-main-title" id="hero-title">Checking System Health...</h1>
+          <p class="hero-subtitle" id="hero-subtitle">Fetching realtime telemetry from automated network probes.</p>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Active Incidents Live Alert (Shown only when an outage occurs) -->
+    <!-- Active Incidents Alert Banner (Only rendered if there are ongoing outages) -->
     <div class="active-incidents-wrap" id="active-incidents-container" style="display: none;"></div>
 
-    <!-- Metrics Row -->
-    <div class="metrics-row">
-      <div class="metric-card">
+    <!-- Unified KPI Metrics Strip (Single Recessed Strip without separate floating boxes) -->
+    <div class="unified-metrics-strip">
+      <div class="metric-col">
         <div class="metric-num" id="overall-uptime">100.0%</div>
-        <div class="metric-title">24h System Uptime</div>
+        <div class="metric-label" data-i18n="kpi_uptime">24h System Uptime</div>
       </div>
-      <div class="metric-card">
+      <div class="metric-sep"></div>
+      <div class="metric-col">
         <div class="metric-num" id="operational-count">0 / 0</div>
-        <div class="metric-title">Services Operational</div>
+        <div class="metric-label" data-i18n="kpi_services">Services Operational</div>
       </div>
-      <div class="metric-card">
+      <div class="metric-sep"></div>
+      <div class="metric-col">
         <div class="metric-num" id="avg-latency">-- ms</div>
-        <div class="metric-title">Average Latency</div>
+        <div class="metric-label" data-i18n="kpi_latency">Average Latency</div>
       </div>
     </div>
 
-    <!-- Services Section -->
-    <div class="section-header">
-      <div class="section-title">Services &amp; Infrastructure</div>
-      <div class="section-note">30 days history</div>
-    </div>
-
-    <div class="services-container" id="services-list">
-      <div style="padding: 32px; text-align: center; color: var(--text-muted);">
-        Loading service status...
+    <!-- Services & Infrastructure Section (Grouped List Container) -->
+    <section class="public-section">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <h2 class="section-title" data-i18n="section_services">Services &amp; Infrastructure</h2>
+        </div>
+        <div class="section-note" data-i18n="section_history_30d">30 days history</div>
       </div>
-    </div>
 
-    <!-- Past Incidents Activity Section -->
-    <div class="section-header" style="margin-top: 40px;">
-      <div class="section-title">Incident History</div>
-      <div class="section-note">Last 30 days</div>
-    </div>
-
-    <div class="incidents-container" id="incidents-list">
-      <div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px;">
-        No incidents reported in the last 30 days.
+      <!-- Single Grouped Container for all services -->
+      <div class="services-grouped-list" id="services-list">
+        <div class="loading-state">
+          <div class="spinner-dot"></div>
+          <span>Loading services status...</span>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Footer -->
-    <footer>
+    <!-- Past Incidents Activity Section (Clean Flat Feed) -->
+    <section class="public-section" style="margin-top: 42px;">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <h2 class="section-title" data-i18n="section_incidents">Incident History</h2>
+        </div>
+        <div class="section-note" data-i18n="section_last_30d">Last 30 days</div>
+      </div>
+
+      <!-- Clean Incident Feed without heavy empty boxes -->
+      <div class="incident-feed-wrap" id="incidents-list">
+        <div class="empty-incident-feed">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span data-i18n="no_incidents">No incidents or disruptions reported in the past 30 days.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Minimal Footer -->
+    <footer class="public-footer">
       <div>Powered by <strong>UptimePulse</strong> • Ultra-light Engine</div>
     </footer>
   </div>
