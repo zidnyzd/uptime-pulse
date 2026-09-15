@@ -169,15 +169,19 @@ function createMonitorWidget(m) {
   card.className = 'widget-card';
   card.id = `card-${m.id}`;
 
-  const statusClass = m.status === 'up' ? 'up' : (m.status === 'down' ? 'down' : 'paused');
+  const statusClass = m.status === 'up' ? 'up' : (m.status === 'down' ? 'down' : (m.status === 'retrying' ? 'retrying' : 'paused'));
   const latencyText = m.last_latency_ms ? `${m.last_latency_ms.toFixed(1)} ms` : '--';
   const typeClass = m.monitor_type.toLowerCase();
+
+  const retryInfo = m.status === 'retrying' 
+    ? `<span style="color: var(--yellow); font-size: 11px; font-weight: 600;">⚠️ Retrying (${m.consecutive_fails || 1}/${m.max_retries || 3})</span>`
+    : `<span>Every ${m.interval_sec}s • Retry ${m.max_retries || 3}x</span>`;
 
   card.innerHTML = `
     <div class="widget-header">
       <div class="widget-title-area">
         <div class="widget-dot-wrap">
-          <div class="status-dot ${statusClass}" id="dot-${m.id}"></div>
+          <div class="status-dot ${statusClass}" id="dot-${m.id}" title="Status: ${m.status}"></div>
         </div>
         <div class="widget-name-wrap">
           <div class="widget-name-header">
@@ -227,7 +231,7 @@ function createMonitorWidget(m) {
     </div>
 
     <div class="widget-footer">
-      <span>Every ${m.interval_sec}s</span>
+      <div id="retry-info-${m.id}">${retryInfo}</div>
       <span id="last-check-${m.id}">${m.last_check_at ? m.last_check_at.split(' ')[1] : 'Pending'}</span>
     </div>
   `;
@@ -241,7 +245,14 @@ function updateCardMetrics(data) {
 
   const dot = document.getElementById(`dot-${m.id}`);
   if (dot) {
-    dot.className = `status-dot ${m.status === 'up' ? 'up' : (m.status === 'down' ? 'down' : 'paused')}`;
+    dot.className = `status-dot ${m.status === 'up' ? 'up' : (m.status === 'down' ? 'down' : (m.status === 'retrying' ? 'retrying' : 'paused'))}`;
+  }
+
+  const retryEl = document.getElementById(`retry-info-${m.id}`);
+  if (retryEl) {
+    retryEl.innerHTML = m.status === 'retrying'
+      ? `<span style="color: var(--yellow); font-size: 11px; font-weight: 600;">⚠️ Retrying (${m.consecutive_fails || 1}/${m.max_retries || 3})</span>`
+      : `<span>Every ${m.interval_sec}s • Retry ${m.max_retries || 3}x</span>`;
   }
 
   const latEl = document.getElementById(`lat-${m.id}`);
@@ -378,12 +389,21 @@ function initSSE() {
         const m = monitorsMap.get(event.monitor_id);
         if (m) {
           m.status = event.status;
+          m.consecutive_fails = event.consecutive_fails;
+          m.max_retries = event.max_retries;
           m.last_latency_ms = event.latency_ms;
           
           // Update elemen DOM langsung tanpa spamming HTTP fetch
           const dot = document.getElementById(`dot-${m.id}`);
           if (dot) {
-            dot.className = `status-dot ${m.status === 'up' ? 'up' : (m.status === 'down' ? 'down' : 'paused')}`;
+            dot.className = `status-dot ${m.status === 'up' ? 'up' : (m.status === 'down' ? 'down' : (m.status === 'retrying' ? 'retrying' : 'paused'))}`;
+          }
+
+          const retryEl = document.getElementById(`retry-info-${m.id}`);
+          if (retryEl) {
+            retryEl.innerHTML = m.status === 'retrying'
+              ? `<span style="color: var(--yellow); font-size: 11px; font-weight: 600;">⚠️ Retrying (${m.consecutive_fails || 1}/${m.max_retries || 3})</span>`
+              : `<span>Every ${m.interval_sec}s • Retry ${m.max_retries || 3}x</span>`;
           }
 
           const latEl = document.getElementById(`lat-${m.id}`);
@@ -487,6 +507,7 @@ async function handleCreateMonitor(e) {
     target: document.getElementById('m-target').value,
     interval_sec: parseInt(document.getElementById('m-interval').value) || 60,
     timeout_sec: 10,
+    max_retries: parseInt(document.getElementById('m-retries').value) || 3,
   };
 
   try {

@@ -24,6 +24,8 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
              target TEXT NOT NULL,
              interval_sec INTEGER NOT NULL DEFAULT 60,
              timeout_sec INTEGER NOT NULL DEFAULT 10,
+             max_retries INTEGER NOT NULL DEFAULT 3,
+             consecutive_fails INTEGER NOT NULL DEFAULT 0,
              is_active INTEGER NOT NULL DEFAULT 1,
              status TEXT NOT NULL DEFAULT 'pending',
              last_latency_ms REAL,
@@ -78,8 +80,15 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
          CREATE INDEX IF NOT EXISTS idx_hb_mon_time ON heartbeats(monitor_id, checked_at DESC);
          CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
          CREATE INDEX IF NOT EXISTS idx_incidents_mon ON incidents(monitor_id, started_at DESC);
-        "
-    )?;
+         "
+         )?;
 
-    Ok(Arc::new(Mutex::new(conn)))
+         // Migrasi kolom toleransi retry (anti-false alarm) jika belum ada di database lama
+         let has_max_retries = conn.prepare("SELECT max_retries FROM monitors LIMIT 1").is_ok();
+         if !has_max_retries {
+         let _ = conn.execute("ALTER TABLE monitors ADD COLUMN max_retries INTEGER NOT NULL DEFAULT 3", []);
+         let _ = conn.execute("ALTER TABLE monitors ADD COLUMN consecutive_fails INTEGER NOT NULL DEFAULT 0", []);
+         }
+
+         Ok(Arc::new(Mutex::new(conn)))
 }

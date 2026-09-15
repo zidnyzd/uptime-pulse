@@ -16,11 +16,11 @@ pub struct Incident {
 }
 
 impl Incident {
-    // Mengevaluasi hasil probe: jika target down maka catat insiden baru, jika pulih maka selesaikan insiden
+    // Mengevaluasi hasil probe: jika status down maka catat insiden baru, jika pulih (up) maka selesaikan insiden
     pub async fn process_probe(
         db: &DbPool,
         monitor_id: i64,
-        is_up: bool,
+        status: &str,
         error_message: Option<&str>,
     ) -> Result<()> {
         let mut trigger_down_info: Option<(String, String, String, String)> = None;
@@ -29,7 +29,7 @@ impl Incident {
         {
             let conn = db.lock().await;
 
-            if !is_up {
+            if status == "down" {
                 // Cek apakah sudah ada insiden aktif yang belum terselesaikan
                 let open_incident_id: Option<i64> = conn
                     .query_row(
@@ -56,7 +56,7 @@ impl Incident {
                         trigger_down_info = Some((mon_info.0, mon_info.1, error_message.unwrap_or("Unknown error").to_string(), now_str));
                     }
                 }
-            } else {
+            } else if status == "up" {
                 // Jika server sudah UP, selesaikan insiden yang masih terbuka dan hitung durasi downtime-nya
                 let open_incident: Option<i64> = conn
                     .query_row(

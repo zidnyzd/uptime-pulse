@@ -7,12 +7,14 @@ use crate::database::DbPool;
 pub struct Monitor {
     pub id: i64,
     pub name: String,
-    pub monitor_type: String, // "http" atau "tcp"
-    pub target: String,       // URL atau host:port
+    pub monitor_type: String, // "http", "tcp", atau "ping"
+    pub target: String,       // URL atau host:port atau IP
     pub interval_sec: i64,    // Interval pengecekan (detik)
     pub timeout_sec: i64,     // Batas waktu timeout (detik)
+    pub max_retries: i64,     // Ambang batas retry sebelum dinyatakan down (default: 3)
+    pub consecutive_fails: i64, // Jumlah kegagalan beruntun saat ini
     pub is_active: bool,      // Status aktif atau dijeda
-    pub status: String,       // "up", "down", "pending", "paused"
+    pub status: String,       // "up", "down", "pending", "paused", "retrying"
     pub last_latency_ms: Option<f64>,
     pub last_check_at: Option<String>,
     pub created_at: String,
@@ -28,17 +30,20 @@ pub struct CreateMonitorInput {
     pub interval_sec: i64,
     #[serde(default = "default_timeout")]
     pub timeout_sec: i64,
+    #[serde(default = "default_max_retries")]
+    pub max_retries: i64,
 }
 
 fn default_interval() -> i64 { 60 }
 fn default_timeout() -> i64 { 10 }
+fn default_max_retries() -> i64 { 3 }
 
 impl Monitor {
     // Mengambil seluruh target monitor dari database
     pub async fn all(db: &DbPool) -> Result<Vec<Monitor>> {
         let conn = db.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, is_active, status, last_latency_ms, last_check_at, created_at
+            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, status, last_latency_ms, last_check_at, created_at
              FROM monitors ORDER BY id DESC"
         )?;
 
@@ -50,11 +55,13 @@ impl Monitor {
                 target: row.get(3)?,
                 interval_sec: row.get(4)?,
                 timeout_sec: row.get(5)?,
-                is_active: row.get::<_, i32>(6)? == 1,
-                status: row.get(7)?,
-                last_latency_ms: row.get(8)?,
-                last_check_at: row.get(9)?,
-                created_at: row.get(10)?,
+                max_retries: row.get(6)?,
+                consecutive_fails: row.get(7)?,
+                is_active: row.get::<_, i32>(8)? == 1,
+                status: row.get(9)?,
+                last_latency_ms: row.get(10)?,
+                last_check_at: row.get(11)?,
+                created_at: row.get(12)?,
             })
         })?;
 
@@ -69,7 +76,7 @@ impl Monitor {
     pub async fn find(db: &DbPool, id: i64) -> Result<Option<Monitor>> {
         let conn = db.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, is_active, status, last_latency_ms, last_check_at, created_at
+            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, status, last_latency_ms, last_check_at, created_at
              FROM monitors WHERE id = ?1"
         )?;
 
@@ -81,11 +88,13 @@ impl Monitor {
                 target: row.get(3)?,
                 interval_sec: row.get(4)?,
                 timeout_sec: row.get(5)?,
-                is_active: row.get::<_, i32>(6)? == 1,
-                status: row.get(7)?,
-                last_latency_ms: row.get(8)?,
-                last_check_at: row.get(9)?,
-                created_at: row.get(10)?,
+                max_retries: row.get(6)?,
+                consecutive_fails: row.get(7)?,
+                is_active: row.get::<_, i32>(8)? == 1,
+                status: row.get(9)?,
+                last_latency_ms: row.get(10)?,
+                last_check_at: row.get(11)?,
+                created_at: row.get(12)?,
             })
         });
 
@@ -99,10 +108,11 @@ impl Monitor {
     // Menyimpan target monitor baru ke SQLite
     pub async fn create(db: &DbPool, input: &CreateMonitorInput) -> Result<i64> {
         let conn = db.lock().await;
+        let max_retries = input.max_retries.clamp(1, 10);
         conn.execute(
-            "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![input.name, input.monitor_type, input.target, input.interval_sec, input.timeout_sec],
+            "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0)",
+            params![input.name, input.monitor_type, input.target, input.interval_sec, input.timeout_sec, max_retries],
         )?;
         Ok(conn.last_insert_rowid())
     }
@@ -120,7 +130,8 @@ impl Monitor {
         let affected = conn.execute(
             "UPDATE monitors 
              SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END,
-                 status = CASE WHEN is_active = 1 THEN 'paused' ELSE 'pending' END
+                 status = CASE WHEN is_active = 1 THEN 'paused' ELSE 'pending' END,
+                 consecutive_fails = 0
              WHERE id = ?1",
             params![id],
         )?;

@@ -75,16 +75,36 @@ pub struct PublicSystemSummary {
 
 impl Heartbeat {
     // Mencatat hasil probe dan memperbarui status monitor di database
-    pub async fn record(db: &DbPool, result: &ProbeResult) -> Result<()> {
+    // Mengembalikan tuple (status_string, consecutive_fails, max_retries)
+    pub async fn record(db: &DbPool, result: &ProbeResult) -> Result<(String, i64, i64)> {
         let conn = db.lock().await;
-        let status_str = if result.is_up { "up" } else { "down" };
 
-        // Update status terkini pada tabel monitors
+        // Ambil max_retries dan consecutive_fails saat ini
+        let (max_retries, current_fails): (i64, i64) = conn
+            .query_row(
+                "SELECT max_retries, consecutive_fails FROM monitors WHERE id = ?1",
+                params![result.monitor_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap_or((3, 0));
+
+        let (status_str, new_fails) = if result.is_up {
+            ("up".to_string(), 0)
+        } else {
+            let next_fails = current_fails + 1;
+            if next_fails >= max_retries {
+                ("down".to_string(), next_fails)
+            } else {
+                ("retrying".to_string(), next_fails)
+            }
+        };
+
+        // Update status terkini dan consecutive_fails pada tabel monitors
         conn.execute(
             "UPDATE monitors 
-             SET status = ?1, last_latency_ms = ?2, last_check_at = datetime('now', 'localtime')
-             WHERE id = ?3",
-            params![status_str, result.latency_ms, result.monitor_id],
+             SET status = ?1, consecutive_fails = ?2, last_latency_ms = ?3, last_check_at = datetime('now', 'localtime')
+             WHERE id = ?4",
+            params![status_str, new_fails, result.latency_ms, result.monitor_id],
         )?;
 
         // Catat ke tabel log heartbeats
@@ -107,7 +127,7 @@ impl Heartbeat {
             params![result.monitor_id],
         )?;
 
-        Ok(())
+        Ok((status_str, new_fails, max_retries))
     }
 
     // Mengambil 24 bucket per-jam untuk 24 jam terakhir (untuk visualisasi bar admin)
@@ -362,7 +382,7 @@ impl Heartbeat {
                 continue;
             }
 
-            if m.status == "up" {
+            if m.status == "up" || m.status == "retrying" {
                 up_count += 1;
             } else if m.status == "down" {
                 down_count += 1;
