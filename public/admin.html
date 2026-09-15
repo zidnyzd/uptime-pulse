@@ -9,56 +9,103 @@
 </head>
 <body>
   <div class="container" id="main-app" style="display: none;">
-    <!-- Header -->
+    <!-- Shell Header -->
     <header>
-      <div class="brand">
+      <div class="brand-wrapper">
         <div class="logo-badge">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
           </svg>
         </div>
-        <div>
-          <h1>UptimePulse Admin</h1>
-          <div class="subtitle">System Monitoring &amp; Probe Controls</div>
+        <div class="brand-meta">
+          <h1>
+            UptimePulse
+            <span class="version-pill">v0.1.0 • Tile Grid</span>
+          </h1>
+          <div class="subtitle">Infrastructure Monitoring &amp; Probe Controls</div>
         </div>
       </div>
       <div class="header-actions">
         <a href="/" class="btn btn-sm">View Public Status</a>
         <button class="btn btn-sm" id="btn-logout" onclick="handleLogout()">Logout</button>
-        <button class="btn btn-primary btn-sm" onclick="openAddModal()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          <span class="btn-text">Add Monitor</span>
-        </button>
       </div>
     </header>
 
-    <!-- Overview Banner -->
-    <div class="banner">
-      <div class="banner-status">
-        <div class="status-dot" id="system-dot"></div>
-        <div class="banner-text" id="system-status">Checking systems...</div>
+    <!-- KPI Summary Grid -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Total Services</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" color="var(--text-muted)">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+          </svg>
+        </div>
+        <div class="kpi-val" id="kpi-total">0</div>
+        <div class="kpi-sub">Monitored endpoints</div>
       </div>
-      <div class="banner-stats">
-        <div class="stat-item">
-          <div class="stat-val" id="count-up">0</div>
-          <div class="stat-lbl">Operational</div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Operational</span>
+          <div class="status-dot up"></div>
         </div>
-        <div class="stat-item">
-          <div class="stat-val" id="count-down">0</div>
-          <div class="stat-lbl">Incidents</div>
+        <div class="kpi-val" id="kpi-up" style="color: var(--green);">0</div>
+        <div class="kpi-sub">Responding normally</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Active Incidents</span>
+          <div class="status-dot down" id="kpi-incident-dot"></div>
         </div>
-        <div class="stat-item">
-          <div class="stat-val" id="count-total">0</div>
-          <div class="stat-lbl">Monitors</div>
+        <div class="kpi-val" id="kpi-down">0</div>
+        <div class="kpi-sub" id="kpi-incident-sub">No downtime detected</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Average Latency</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" color="var(--text-muted)">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
         </div>
+        <div class="kpi-val" id="kpi-latency">-- ms</div>
+        <div class="kpi-sub">Overall probe response time</div>
       </div>
     </div>
 
-    <!-- Monitor List -->
-    <div class="monitor-list" id="monitor-container">
+    <!-- Controls Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" class="search-input" id="search-input" placeholder="Search targets by name or host..." oninput="handleSearch()">
+        </div>
+        <div class="filter-pills">
+          <button class="filter-pill active" onclick="setFilter('all', this)">All</button>
+          <button class="filter-pill" onclick="setFilter('http', this)">HTTP</button>
+          <button class="filter-pill" onclick="setFilter('tcp', this)">TCP</button>
+          <button class="filter-pill" onclick="setFilter('ping', this)">Ping</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="openAddModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Add Monitor</span>
+      </button>
+    </div>
+
+    <!-- Widget Cards Grid (Option 3) -->
+    <div class="widget-grid" id="monitor-grid">
       <div class="empty-state">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <circle cx="12" cy="12" r="10"></circle>
@@ -111,7 +158,7 @@
       <form id="monitor-form" onsubmit="handleCreateMonitor(event)">
         <div class="form-group">
           <label>Friendly Name</label>
-          <input type="text" class="form-control" id="m-name" placeholder="e.g. Cloudflare DNS or My App" required>
+          <input type="text" class="form-control" id="m-name" placeholder="e.g. Production API or Gateway Ping" required>
         </div>
         <div class="form-row">
           <div class="form-group">
