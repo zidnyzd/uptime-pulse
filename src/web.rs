@@ -35,17 +35,37 @@ pub struct AppState {
 pub fn create_router(state: Arc<AppState>) -> Router {
     Router::new()
         // API routes
+        .route("/api/public/summary", get(get_public_summary_handler))
         .route("/api/monitors", get(list_monitors).post(create_monitor))
         .route("/api/monitors/{id}", get(get_monitor_detail))
         .route("/api/monitors/{id}", delete(delete_monitor))
         .route("/api/monitors/{id}/pause", post(toggle_pause))
         .route("/api/monitors/{id}/check", post(trigger_check))
         .route("/api/events", get(sse_handler))
+        .route("/admin", get(admin_page_handler))
         // Static assets fallback
         .fallback(static_handler)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
+}
+
+async fn get_public_summary_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    match db::get_public_summary(&state.db).await {
+        Ok(summary) => Ok(Json(summary)),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+    }
+}
+
+async fn admin_page_handler() -> Response {
+    match Assets::get("admin.html") {
+        Some(content) => {
+            ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], content.data).into_response()
+        }
+        None => (StatusCode::NOT_FOUND, "Admin page not found").into_response(),
+    }
 }
 
 async fn list_monitors(

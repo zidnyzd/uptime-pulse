@@ -222,3 +222,71 @@ pub async fn record_heartbeat(db: &DbPool, result: &ProbeResult) -> Result<()> {
 
     Ok(())
 }
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct PublicMonitorSummary {
+    pub id: i64,
+    pub name: String,
+    pub status: String,
+    pub uptime_24h: f64,
+    pub avg_latency_ms: f64,
+    pub history: Vec<bool>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct PublicSystemSummary {
+    pub overall_status: String, // "operational", "degraded", "outage"
+    pub total_services: usize,
+    pub operational_services: usize,
+    pub incident_services: usize,
+    pub monitors: Vec<PublicMonitorSummary>,
+}
+
+pub async fn get_public_summary(db: &DbPool) -> Result<PublicSystemSummary> {
+    let monitors = list_monitors(db).await?;
+    let mut public_items = Vec::new();
+    let mut up_count = 0;
+    let mut down_count = 0;
+
+    for m in &monitors {
+        if !m.is_active {
+            continue;
+        }
+
+        if m.status == "up" {
+            up_count += 1;
+        } else if m.status == "down" {
+            down_count += 1;
+        }
+
+        let detail = get_monitor_detail(db, m.id).await?.unwrap();
+        let history = detail.recent_heartbeats.iter().map(|h| h.is_up).collect();
+
+        public_items.push(PublicMonitorSummary {
+            id: m.id,
+            name: m.name.clone(),
+            status: m.status.clone(),
+            uptime_24h: detail.uptime_24h,
+            avg_latency_ms: detail.avg_latency_24h,
+            history,
+        });
+    }
+
+    let overall_status = if down_count == 0 && !public_items.is_empty() {
+        "operational".to_string()
+    } else if down_count > 0 && up_count > 0 {
+        "degraded".to_string()
+    } else if down_count > 0 && up_count == 0 {
+        "outage".to_string()
+    } else {
+        "operational".to_string()
+    };
+
+    Ok(PublicSystemSummary {
+        overall_status,
+        total_services: public_items.len(),
+        operational_services: up_count,
+        incident_services: down_count,
+        monitors: public_items,
+    })
+}
