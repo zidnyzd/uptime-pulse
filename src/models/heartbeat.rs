@@ -1,5 +1,8 @@
+use chrono::{Duration, Local};
 use rusqlite::{params, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
 use crate::database::DbPool;
 use crate::models::monitor::Monitor;
 
@@ -25,16 +28,29 @@ pub struct ProbeResult {
     pub error_message: Option<String>,
 }
 
-// Data gabungan monitor + riwayat untuk panel admin
+// Bucket agregasi bar visual (mewakili 1 hari di publik atau 1 jam di admin)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BarBucket {
+    pub label: String,       // "15 Sep" atau "14:00"
+    pub date_key: String,    // "2026-09-15" atau "2026-09-15 14:00"
+    pub total_checks: i64,
+    pub up_checks: i64,
+    pub uptime_pct: f64,     // 0.0 - 100.0
+    pub avg_latency_ms: f64,
+    pub status: String,      // "up", "degraded", "down", "empty"
+}
+
+// Data detail monitor untuk admin (termasuk 24 bar per-jam untuk 24 jam terakhir)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MonitorDetail {
     pub monitor: Monitor,
+    pub hourly_bars: Vec<BarBucket>,
     pub recent_heartbeats: Vec<Heartbeat>,
     pub uptime_24h: f64,
     pub avg_latency_24h: f64,
 }
 
-// Ringkasan monitor publik (disanitasi tanpa info endpoint internal)
+// Ringkasan monitor publik (termasuk 30 bar harian untuk 30 hari terakhir)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublicMonitorSummary {
     pub id: i64,
@@ -42,10 +58,10 @@ pub struct PublicMonitorSummary {
     pub status: String,
     pub uptime_24h: f64,
     pub avg_latency_ms: f64,
-    pub history: Vec<bool>,
+    pub daily_bars: Vec<BarBucket>,
 }
 
-// Ringkasan sistem publik untuk landing page / status page
+// Ringkasan sistem publik untuk status page
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublicSystemSummary {
     pub overall_status: String, // "operational", "degraded", "outage"
@@ -82,28 +98,204 @@ impl Heartbeat {
             ],
         )?;
 
-        // Pruning otomatis: Batasi 500 riwayat per target agar storage SQLite tidak membesar
+        // Pruning berkala: Hapus riwayat yang lebih lama dari 30 hari agar flash router awet
         conn.execute(
             "DELETE FROM heartbeats 
-             WHERE monitor_id = ?1 AND id NOT IN (
-                 SELECT id FROM heartbeats WHERE monitor_id = ?1 ORDER BY id DESC LIMIT 500
-             )",
+             WHERE monitor_id = ?1 AND checked_at < datetime('now', '-30 days', 'localtime')",
             params![result.monitor_id],
         )?;
 
         Ok(())
     }
 
-    // Mengambil detail lengkap monitor beserta riwayat heartbeat & persentase 24 jam
+    // Mengambil 24 bucket per-jam untuk 24 jam terakhir (untuk visualisasi bar admin)
+    pub async fn get_hourly_buckets(db: &DbPool, monitor_id: i64) -> Result<Vec<BarBucket>> {
+        let conn = db.lock().await;
+        let mut stmt = conn.prepare(
+            "SELECT 
+                strftime('%Y-%m-%d %H:00', checked_at) as hr,
+                COUNT(*) as total,
+                SUM(CASE WHEN is_up = 1 THEN 1 ELSE 0 END) as up_cnt,
+                AVG(CASE WHEN is_up = 1 THEN latency_ms ELSE NULL END) as avg_lat
+             FROM heartbeats 
+             WHERE monitor_id = ?1 AND checked_at >= datetime('now', '-23 hours', 'localtime')
+             GROUP BY hr"
+        )?;
+
+        struct RowData {
+            total: i64,
+            up: i64,
+            lat: Option<f64>,
+        }
+
+        let mut map: HashMap<String, RowData> = HashMap::new();
+        let rows = stmt.query_map([monitor_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                RowData {
+                    total: row.get(1)?,
+                    up: row.get::<_, Option<i64>>(2)?.unwrap_or(0),
+                    lat: row.get(3)?,
+                },
+            ))
+        })?;
+
+        for r in rows {
+            let (hr, data) = r?;
+            map.insert(hr, data);
+        }
+
+        let now = Local::now();
+        let mut buckets = Vec::with_capacity(24);
+
+        // Buat tepat 24 slot jam dari 23 jam lalu hingga jam sekarang
+        for i in (0..24).rev() {
+            let target_time = now - Duration::hours(i);
+            let hr_key = target_time.format("%Y-%m-%d %H:00").to_string();
+            let label = target_time.format("%H:00").to_string();
+
+            if let Some(d) = map.get(&hr_key) {
+                let uptime_pct = if d.total > 0 {
+                    (d.up as f64 / d.total as f64) * 100.0
+                } else {
+                    100.0
+                };
+
+                let status = if d.total == 0 {
+                    "empty".to_string()
+                } else if d.up == d.total {
+                    "up".to_string()
+                } else if uptime_pct >= 95.0 {
+                    "degraded".to_string()
+                } else {
+                    "down".to_string()
+                };
+
+                buckets.push(BarBucket {
+                    label,
+                    date_key: hr_key,
+                    total_checks: d.total,
+                    up_checks: d.up,
+                    uptime_pct: (uptime_pct * 10.0).round() / 10.0,
+                    avg_latency_ms: (d.lat.unwrap_or(0.0) * 10.0).round() / 10.0,
+                    status,
+                });
+            } else {
+                buckets.push(BarBucket {
+                    label,
+                    date_key: hr_key,
+                    total_checks: 0,
+                    up_checks: 0,
+                    uptime_pct: 100.0,
+                    avg_latency_ms: 0.0,
+                    status: "empty".to_string(),
+                });
+            }
+        }
+
+        Ok(buckets)
+    }
+
+    // Mengambil 30 bucket harian untuk 30 hari terakhir (untuk visualisasi bar publik)
+    pub async fn get_daily_buckets(db: &DbPool, monitor_id: i64) -> Result<Vec<BarBucket>> {
+        let conn = db.lock().await;
+        let mut stmt = conn.prepare(
+            "SELECT 
+                strftime('%Y-%m-%d', checked_at) as day,
+                COUNT(*) as total,
+                SUM(CASE WHEN is_up = 1 THEN 1 ELSE 0 END) as up_cnt,
+                AVG(CASE WHEN is_up = 1 THEN latency_ms ELSE NULL END) as avg_lat
+             FROM heartbeats 
+             WHERE monitor_id = ?1 AND checked_at >= date('now', '-29 days', 'localtime')
+             GROUP BY day"
+        )?;
+
+        struct RowData {
+            total: i64,
+            up: i64,
+            lat: Option<f64>,
+        }
+
+        let mut map: HashMap<String, RowData> = HashMap::new();
+        let rows = stmt.query_map([monitor_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                RowData {
+                    total: row.get(1)?,
+                    up: row.get::<_, Option<i64>>(2)?.unwrap_or(0),
+                    lat: row.get(3)?,
+                },
+            ))
+        })?;
+
+        for r in rows {
+            let (day, data) = r?;
+            map.insert(day, data);
+        }
+
+        let now = Local::now();
+        let mut buckets = Vec::with_capacity(30);
+
+        // Buat tepat 30 slot hari dari 29 hari lalu hingga hari ini
+        for i in (0..30).rev() {
+            let target_date = now - Duration::days(i);
+            let day_key = target_date.format("%Y-%m-%d").to_string();
+            let label = target_date.format("%d %b").to_string();
+
+            if let Some(d) = map.get(&day_key) {
+                let uptime_pct = if d.total > 0 {
+                    (d.up as f64 / d.total as f64) * 100.0
+                } else {
+                    100.0
+                };
+
+                let status = if d.total == 0 {
+                    "empty".to_string()
+                } else if d.up == d.total {
+                    "up".to_string()
+                } else if uptime_pct >= 95.0 {
+                    "degraded".to_string()
+                } else {
+                    "down".to_string()
+                };
+
+                buckets.push(BarBucket {
+                    label,
+                    date_key: day_key,
+                    total_checks: d.total,
+                    up_checks: d.up,
+                    uptime_pct: (uptime_pct * 10.0).round() / 10.0,
+                    avg_latency_ms: (d.lat.unwrap_or(0.0) * 10.0).round() / 10.0,
+                    status,
+                });
+            } else {
+                buckets.push(BarBucket {
+                    label,
+                    date_key: day_key,
+                    total_checks: 0,
+                    up_checks: 0,
+                    uptime_pct: 100.0,
+                    avg_latency_ms: 0.0,
+                    status: "empty".to_string(),
+                });
+            }
+        }
+
+        Ok(buckets)
+    }
+
+    // Mengambil detail lengkap monitor beserta riwayat hourly bars & 24h stats untuk admin
     pub async fn find_detail(db: &DbPool, id: i64) -> Result<Option<MonitorDetail>> {
         let monitor = match Monitor::find(db, id).await? {
             Some(m) => m,
             None => return Ok(None),
         };
 
+        let hourly_bars = Self::get_hourly_buckets(db, id).await?;
+
         let conn = db.lock().await;
 
-        // Ambil 30 heartbeat terakhir
+        // Ambil 30 raw heartbeat terakhir untuk audit log
         let mut hb_stmt = conn.prepare(
             "SELECT id, monitor_id, is_up, status_code, latency_ms, error_message, checked_at
              FROM heartbeats WHERE monitor_id = ?1 ORDER BY id DESC LIMIT 30"
@@ -149,13 +341,14 @@ impl Heartbeat {
 
         Ok(Some(MonitorDetail {
             monitor,
+            hourly_bars,
             recent_heartbeats: heartbeats,
             uptime_24h,
             avg_latency_24h: avg_lat.unwrap_or(0.0),
         }))
     }
 
-    // Mengumpulkan agregasi status untuk halaman publik klien
+    // Mengumpulkan agregasi status untuk halaman publik klien (dengan 30 daily buckets)
     pub async fn get_public_summary(db: &DbPool) -> Result<PublicSystemSummary> {
         let monitors = Monitor::all(db).await?;
         let mut public_items = Vec::new();
@@ -173,17 +366,37 @@ impl Heartbeat {
                 down_count += 1;
             }
 
-            if let Some(detail) = Self::find_detail(db, m.id).await? {
-                let history = detail.recent_heartbeats.iter().map(|h| h.is_up).collect();
-                public_items.push(PublicMonitorSummary {
-                    id: m.id,
-                    name: m.name.clone(),
-                    status: m.status.clone(),
-                    uptime_24h: detail.uptime_24h,
-                    avg_latency_ms: detail.avg_latency_24h,
-                    history,
-                });
-            }
+            let daily_bars = Self::get_daily_buckets(db, m.id).await?;
+
+            // Hitung uptime 24 jam terakhir
+            let conn = db.lock().await;
+            let mut stats_stmt = conn.prepare(
+                "SELECT COUNT(*), SUM(CASE WHEN is_up = 1 THEN 1 ELSE 0 END), AVG(CASE WHEN is_up = 1 THEN latency_ms ELSE NULL END)
+                 FROM heartbeats WHERE monitor_id = ?1 AND checked_at >= datetime('now', '-1 day', 'localtime')"
+            )?;
+
+            let (total_24h, up_24h, avg_lat_24h): (i64, i64, Option<f64>) = stats_stmt.query_row([m.id], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get::<_, Option<i64>>(1)?.unwrap_or(0),
+                    row.get(2)?,
+                ))
+            })?;
+
+            let uptime_24h = if total_24h > 0 {
+                (up_24h as f64 / total_24h as f64) * 100.0
+            } else {
+                100.0
+            };
+
+            public_items.push(PublicMonitorSummary {
+                id: m.id,
+                name: m.name.clone(),
+                status: m.status.clone(),
+                uptime_24h,
+                avg_latency_ms: avg_lat_24h.unwrap_or(0.0),
+                daily_bars,
+            });
         }
 
         let overall_status = if down_count == 0 && !public_items.is_empty() {

@@ -260,21 +260,30 @@ function updateCardMetrics(data) {
   }
 
   const barsContainer = document.getElementById(`bars-${m.id}`);
-  if (barsContainer && data.recent_heartbeats) {
+  if (barsContainer && data.hourly_bars) {
     barsContainer.innerHTML = '';
-    const hbs = data.recent_heartbeats;
-    const padCount = Math.max(0, 24 - hbs.length);
-    for (let i = 0; i < padCount; i++) {
-      const emptyBar = document.createElement('div');
-      emptyBar.className = 'bar bar-empty';
-      barsContainer.appendChild(emptyBar);
-    }
-    for (const hb of hbs) {
+    const bars = data.hourly_bars;
+    for (const b of bars) {
       const bar = document.createElement('div');
-      bar.className = `bar ${hb.is_up ? '' : 'down'}`;
-      const height = hb.is_up ? Math.min(26, Math.max(6, Math.round(hb.latency_ms / 15))) : 26;
+      let cls = 'bar-empty';
+      let title = `${b.label}: No data`;
+      let height = 4;
+      if (b.status === 'up') {
+        cls = '';
+        title = `${b.label}: 100% Uptime, ${b.avg_latency_ms} ms (${b.total_checks} checks)`;
+        height = Math.min(26, Math.max(8, Math.round(b.avg_latency_ms / 10)));
+      } else if (b.status === 'degraded') {
+        cls = 'degraded';
+        title = `${b.label}: ${b.uptime_pct}% Uptime (${b.total_checks - b.up_checks} incidents)`;
+        height = 26;
+      } else if (b.status === 'down') {
+        cls = 'down';
+        title = `${b.label}: ${b.uptime_pct}% Uptime (${b.total_checks - b.up_checks} incidents)`;
+        height = 26;
+      }
+      bar.className = `bar ${cls}`.trim();
       bar.style.height = `${height}px`;
-      bar.title = `${hb.checked_at} - ${hb.is_up ? hb.latency_ms + 'ms' : (hb.error_message || 'Down')}`;
+      bar.title = title;
       barsContainer.appendChild(bar);
     }
   }

@@ -74,13 +74,21 @@ function renderPublicView(data) {
     const pillText = isUp ? 'Operational' : (m.status === 'down' ? 'Major Outage' : 'Paused');
 
     let barsHtml = '';
-    const history = m.history || [];
-    const padCount = Math.max(0, 30 - history.length);
-    for (let i = 0; i < padCount; i++) {
-      barsHtml += `<div class="strip-bar empty" title="No data"></div>`;
-    }
-    for (const hbUp of history) {
-      barsHtml += `<div class="strip-bar ${hbUp ? '' : 'down'}" title="${hbUp ? 'Operational' : 'Incident'}"></div>`;
+    const bars = m.daily_bars || [];
+    for (const b of bars) {
+      let cls = 'empty';
+      let title = `${b.label}: No data recorded`;
+      if (b.status === 'up') {
+        cls = '';
+        title = `${b.label}: 100% Uptime (${b.total_checks} checks)`;
+      } else if (b.status === 'degraded') {
+        cls = 'degraded';
+        title = `${b.label}: ${b.uptime_pct}% Uptime (${b.total_checks - b.up_checks} incidents)`;
+      } else if (b.status === 'down') {
+        cls = 'down';
+        title = `${b.label}: ${b.uptime_pct}% Uptime (${b.total_checks - b.up_checks} incidents)`;
+      }
+      barsHtml += `<div class="strip-bar ${cls}" title="${title}"></div>`;
     }
 
     row.innerHTML = `
@@ -92,7 +100,7 @@ function renderPublicView(data) {
         ${barsHtml}
       </div>
       <div class="strip-footer">
-        <span>Earlier</span>
+        <span>30 days ago</span>
         <span>${m.uptime_24h.toFixed(1)}% uptime (24h)</span>
         <span>Today</span>
       </div>

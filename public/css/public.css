@@ -247,6 +247,10 @@
   background: var(--red);
 }
 
+.strip-bar.degraded {
+  background: var(--amber);
+}
+
 .strip-bar.empty {
   background: rgba(255, 255, 255, 0.06);
   cursor: default;
