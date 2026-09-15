@@ -448,38 +448,57 @@ header {
 
 @media (max-width: 640px) {
   .container {
-    padding: 20px 14px 60px;
+    padding: 16px 14px 48px;
   }
 
   header {
     flex-direction: column;
     align-items: stretch;
-    gap: 16px;
+    gap: 12px;
+    padding: 12px 0 16px;
+    margin-bottom: 18px;
   }
 
   .header-actions {
-    width: 100%;
     display: flex;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .header-actions .btn {
-    flex: 1;
-    min-height: 44px;
+    padding: 6px 12px;
+    font-size: 12px;
+    height: 32px;
+    min-height: 32px;
+    border-radius: 6px;
   }
 
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .kpi-card {
+    padding: 12px 14px;
+  }
+
+  .kpi-val {
+    font-size: 20px;
   }
 
   .toolbar {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
+    margin-bottom: 16px;
   }
 
   .toolbar-left {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
     width: 100%;
   }
 
@@ -487,38 +506,62 @@ header {
     max-width: 100%;
   }
 
+  .search-input {
+    padding: 6px 10px 6px 32px;
+    font-size: 12px;
+    height: 34px;
+  }
+
   .filter-pills {
+    display: flex;
+    gap: 4px;
     overflow-x: auto;
-    padding-bottom: 2px;
   }
 
   .filter-pill {
+    padding: 5px 12px;
+    font-size: 12px;
+    height: 30px;
+    min-height: 30px;
+    border-radius: 6px;
     flex: 1;
     text-align: center;
-    min-height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .toolbar .btn-primary {
     width: 100%;
-    min-height: 44px;
+    height: 36px;
+    min-height: 36px;
+    font-size: 13px;
+    border-radius: 6px;
+    padding: 8px 16px;
   }
 
   .widget-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .widget-card {
+    padding: 14px 16px;
+    gap: 12px;
   }
 
   .btn-icon {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    border-radius: 6px;
+  }
+
+  .btn-icon svg {
+    width: 13px;
+    height: 13px;
   }
 
   .modal {
-    margin: 16px;
-    padding: 20px;
+    margin: 14px;
+    padding: 18px;
   }
 }

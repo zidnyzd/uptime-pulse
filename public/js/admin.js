@@ -336,25 +336,69 @@ function handleSearch() {
   renderMonitors();
 }
 
-// Inisialisasi SSE
+// Inisialisasi SSE terkendali (mencegah duplikasi koneksi & spam reconnect saat server restart)
+let sseConnection = null;
+let sseReconnectTimer = null;
+
 function initSSE() {
-  const evtSource = new EventSource('/api/events');
-  evtSource.onmessage = (e) => {
-    try {
-      const event = JSON.parse(e.data);
-      const m = monitorsMap.get(event.monitor_id);
-      if (m) {
-        m.status = event.status;
-        m.last_latency_ms = event.latency_ms;
-        loadDetails(m.id);
+  if (sseConnection) {
+    sseConnection.close();
+    sseConnection = null;
+  }
+  if (sseReconnectTimer) {
+    clearTimeout(sseReconnectTimer);
+    sseReconnectTimer = null;
+  }
+
+  try {
+    sseConnection = new EventSource('/api/events');
+
+    sseConnection.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data);
+        const m = monitorsMap.get(event.monitor_id);
+        if (m) {
+          m.status = event.status;
+          m.last_latency_ms = event.latency_ms;
+          
+          // Update elemen DOM langsung tanpa spamming HTTP fetch
+          const dot = document.getElementById(`dot-${m.id}`);
+          if (dot) {
+            dot.className = `status-dot ${m.status === 'up' ? 'up' : (m.status === 'down' ? 'down' : 'paused')}`;
+          }
+
+          const latEl = document.getElementById(`lat-${m.id}`);
+          if (latEl && m.last_latency_ms) {
+            latEl.textContent = `${m.last_latency_ms.toFixed(1)} ms`;
+          }
+
+          const lastCheckEl = document.getElementById(`last-check-${m.id}`);
+          if (lastCheckEl) {
+            const now = new Date();
+            lastCheckEl.textContent = now.toTimeString().split(' ')[0];
+          }
+
+          recalcStats();
+        }
+      } catch (err) {}
+    };
+
+    sseConnection.onerror = () => {
+      // Tutup koneksi aktif segera agar browser tidak melakukan auto-reconnect tak terkontrol
+      if (sseConnection) {
+        sseConnection.close();
+        sseConnection = null;
       }
-    } catch (err) {
-      console.error('SSE parse error:', err);
-    }
-  };
-  evtSource.onerror = () => {
-    setTimeout(initSSE, 5000);
-  };
+      // Jadwalkan reconnect tunggal setelah 6 detik
+      sseReconnectTimer = setTimeout(() => {
+        initSSE();
+      }, 6000);
+    };
+  } catch (err) {
+    sseReconnectTimer = setTimeout(() => {
+      initSSE();
+    }, 6000);
+  }
 }
 
 // Action Check Now

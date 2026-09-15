@@ -101,15 +101,39 @@ function renderPublicView(data) {
   }
 }
 
-// Koneksi SSE (Server-Sent Events) untuk auto-update real-time
+// Koneksi SSE (Server-Sent Events) terkendali untuk update real-time
+let publicSse = null;
+let publicReconnectTimer = null;
+
 function initLiveUpdates() {
-  const evtSource = new EventSource('/api/events');
-  evtSource.onmessage = () => {
-    loadPublicData();
-  };
-  evtSource.onerror = () => {
-    setTimeout(initLiveUpdates, 5000);
-  };
+  if (publicSse) {
+    publicSse.close();
+    publicSse = null;
+  }
+  if (publicReconnectTimer) {
+    clearTimeout(publicReconnectTimer);
+    publicReconnectTimer = null;
+  }
+
+  try {
+    publicSse = new EventSource('/api/events');
+    publicSse.onmessage = () => {
+      loadPublicData();
+    };
+    publicSse.onerror = () => {
+      if (publicSse) {
+        publicSse.close();
+        publicSse = null;
+      }
+      publicReconnectTimer = setTimeout(() => {
+        initLiveUpdates();
+      }, 6000);
+    };
+  } catch (err) {
+    publicReconnectTimer = setTimeout(() => {
+      initLiveUpdates();
+    }, 6000);
+  }
 }
 
 function escapeHtml(str) {
