@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::Read;
-use rusqlite::{params, Result};
+use rusqlite::{params, OptionalExtension, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use crate::database::DbPool;
@@ -125,5 +125,45 @@ impl User {
         let conn = db.lock().await;
         conn.execute("DELETE FROM sessions WHERE token = ?1", [token])?;
         Ok(())
+    }
+
+    // Memperbarui kata sandi admin setelah memvalidasi kata sandi lama
+    pub async fn change_password(
+        db: &DbPool,
+        username: &str,
+        old_password: &str,
+        new_password: &str,
+    ) -> Result<Result<(), String>> {
+        let conn = db.lock().await;
+
+        let user: Option<(i64, String, String)> = conn
+            .query_row(
+                "SELECT id, password_hash, salt FROM users WHERE username = ?1",
+                params![username],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .optional()?;
+
+        let (user_id, current_hash, current_salt) = match user {
+            Some(u) => u,
+            None => return Ok(Err("Pengguna tidak ditemukan".to_string())),
+        };
+
+        // Verifikasi password lama
+        let computed = Self::hash_password(old_password, &current_salt);
+        if computed != current_hash {
+            return Ok(Err("Kata sandi lama tidak cocok".to_string()));
+        }
+
+        // Buat salt acak baru dan hash kata sandi baru
+        let new_salt = Self::generate_random_hex(16);
+        let new_hash = Self::hash_password(new_password, &new_salt);
+
+        conn.execute(
+            "UPDATE users SET password_hash = ?1, salt = ?2 WHERE id = ?3",
+            params![new_hash, new_salt, user_id],
+        )?;
+
+        Ok(Ok(()))
     }
 }

@@ -206,6 +206,12 @@ function createMonitorWidget(m) {
             <line x1="14" y1="15" x2="14" y2="9"></line>
           </svg>
         </button>
+        <button class="btn-icon" title="Edit Monitor" onclick="openEditModal(${m.id})">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+        </button>
         <button class="btn-icon danger" title="Delete" onclick="deleteMonitor(${m.id})">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"></polyline>
@@ -526,6 +532,153 @@ async function handleCreateMonitor(e) {
     }
   } catch (err) {
     alert('Error: ' + err);
+  }
+}
+
+// --- Edit Monitor Modal ---
+function openEditModal(id) {
+  const m = monitorsMap.get(id);
+  if (!m) return;
+
+  document.getElementById('edit-id').value = m.id;
+  document.getElementById('edit-name').value = m.name;
+  document.getElementById('edit-type').value = m.monitor_type;
+  document.getElementById('edit-interval').value = m.interval_sec;
+  document.getElementById('edit-target').value = m.target;
+  document.getElementById('edit-retries').value = m.max_retries || 3;
+
+  handleEditTypeChange();
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+}
+
+function handleEditTypeChange() {
+  const type = document.getElementById('edit-type').value;
+  const targetLabel = document.getElementById('edit-target-label');
+  const targetInput = document.getElementById('edit-target');
+
+  if (type === 'tcp') {
+    targetLabel.textContent = 'Target Host:Port';
+    targetInput.placeholder = '1.1.1.1:53 or example.com:80';
+  } else if (type === 'ping') {
+    targetLabel.textContent = 'Target Host / IP';
+    targetInput.placeholder = '1.1.1.1 or example.com';
+  } else {
+    targetLabel.textContent = 'Target URL';
+    targetInput.placeholder = 'https://example.com';
+  }
+}
+
+async function handleUpdateMonitor(e) {
+  e.preventDefault();
+  const id = document.getElementById('edit-id').value;
+  const payload = {
+    name: document.getElementById('edit-name').value,
+    monitor_type: document.getElementById('edit-type').value,
+    target: document.getElementById('edit-target').value,
+    interval_sec: parseInt(document.getElementById('edit-interval').value) || 60,
+    timeout_sec: 10,
+    max_retries: parseInt(document.getElementById('edit-retries').value) || 3,
+  };
+
+  const btn = document.getElementById('btn-edit-submit');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    const res = await apiFetch(`/api/monitors/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      closeEditModal();
+      await loadMonitors();
+    } else {
+      const err = await res.text();
+      alert('Gagal memperbarui monitor: ' + err);
+    }
+  } catch (err) {
+    alert('Error: ' + err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Update Monitor';
+  }
+}
+
+// --- Change Password Modal ---
+function openPasswordModal() {
+  document.getElementById('password-modal').style.display = 'flex';
+  const form = document.getElementById('password-form');
+  if (form) form.reset();
+  const statusMsg = document.getElementById('pwd-status-msg');
+  if (statusMsg) statusMsg.style.display = 'none';
+}
+
+function closePasswordModal() {
+  document.getElementById('password-modal').style.display = 'none';
+}
+
+async function handleChangePassword(e) {
+  e.preventDefault();
+  const oldPassword = document.getElementById('pwd-old').value;
+  const newPassword = document.getElementById('pwd-new').value;
+  const confirmPassword = document.getElementById('pwd-confirm').value;
+  const statusMsg = document.getElementById('pwd-status-msg');
+  const submitBtn = document.getElementById('btn-pwd-save');
+
+  if (newPassword !== confirmPassword) {
+    statusMsg.textContent = 'Konfirmasi kata sandi baru tidak cocok.';
+    statusMsg.style.color = 'var(--red)';
+    statusMsg.style.display = 'block';
+    return;
+  }
+
+  if (newPassword.length < 4) {
+    statusMsg.textContent = 'Kata sandi baru minimal 4 karakter.';
+    statusMsg.style.color = 'var(--red)';
+    statusMsg.style.display = 'block';
+    return;
+  }
+
+  statusMsg.style.display = 'none';
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Menyimpan...';
+
+  try {
+    const res = await apiFetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        old_password: oldPassword,
+        new_password: newPassword
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      statusMsg.textContent = data.message || 'Kata sandi berhasil diubah!';
+      statusMsg.style.color = 'var(--green)';
+      statusMsg.style.display = 'block';
+      setTimeout(() => {
+        closePasswordModal();
+      }, 1500);
+    } else {
+      statusMsg.textContent = data.error || 'Gagal mengubah kata sandi.';
+      statusMsg.style.color = 'var(--red)';
+      statusMsg.style.display = 'block';
+    }
+  } catch (err) {
+    statusMsg.textContent = 'Terjadi kesalahan: ' + err;
+    statusMsg.style.color = 'var(--red)';
+    statusMsg.style.display = 'block';
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Simpan Sandi Baru';
   }
 }
 

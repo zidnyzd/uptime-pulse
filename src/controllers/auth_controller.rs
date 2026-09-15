@@ -125,3 +125,37 @@ pub async fn me(
         "username": if is_authenticated { "admin" } else { "" }
     })).into_response()
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ChangePasswordPayload {
+    pub old_password: String,
+    pub new_password: String,
+}
+
+// Handler ubah kata sandi admin
+pub async fn change_password(
+    State(state): State<Arc<AuthControllerState>>,
+    Json(payload): Json<ChangePasswordPayload>,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    if payload.new_password.trim().len() < 4 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "success": false, "error": "Kata sandi baru minimal 4 karakter" })),
+        ));
+    }
+
+    match User::change_password(&state.db, "admin", &payload.old_password, &payload.new_password).await {
+        Ok(Ok(())) => Ok(Json(json!({
+            "success": true,
+            "message": "Kata sandi admin berhasil diperbarui"
+        }))),
+        Ok(Err(msg)) => Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "success": false, "error": msg })),
+        )),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "error": e.to_string() })),
+        )),
+    }
+}

@@ -33,7 +33,7 @@ pub fn build_api_router(db: DbPool, event_tx: EventSender) -> Router {
         .route("/api/auth/login", post(auth_controller::login))
         .route("/api/auth/logout", post(auth_controller::logout))
         .route("/api/auth/me", get(auth_controller::me))
-        .with_state(auth_controller_state);
+        .with_state(auth_controller_state.clone());
 
     // Rute Publik untuk Status & Event Stream
     let public_routes = Router::new()
@@ -49,7 +49,9 @@ pub fn build_api_router(db: DbPool, event_tx: EventSender) -> Router {
         )
         .route(
             "/api/monitors/{id}",
-            get(monitor_controller::show).delete(monitor_controller::destroy),
+            get(monitor_controller::show)
+                .put(monitor_controller::update)
+                .delete(monitor_controller::destroy),
         )
         .route("/api/monitors/{id}/pause", post(monitor_controller::toggle_pause))
         .route("/api/monitors/{id}/check", post(monitor_controller::check))
@@ -70,6 +72,14 @@ pub fn build_api_router(db: DbPool, event_tx: EventSender) -> Router {
         .with_state(setting_controller_state)
         .route_layer(from_fn_with_state(auth_mw_state.clone(), require_admin_auth));
 
+    let admin_auth_routes = Router::new()
+        .route(
+            "/api/auth/change-password",
+            post(auth_controller::change_password),
+        )
+        .with_state(auth_controller_state)
+        .route_layer(from_fn_with_state(auth_mw_state.clone(), require_admin_auth));
+
     let backup_controller_state = Arc::new(BackupControllerState { db: db.clone() });
     let admin_backup_routes = Router::new()
         .route("/api/backup/export", get(backup_controller::export_json))
@@ -84,4 +94,5 @@ pub fn build_api_router(db: DbPool, event_tx: EventSender) -> Router {
         .merge(admin_monitor_routes)
         .merge(admin_setting_routes)
         .merge(admin_backup_routes)
+        .merge(admin_auth_routes)
 }

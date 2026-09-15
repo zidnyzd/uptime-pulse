@@ -34,6 +34,18 @@ pub struct CreateMonitorInput {
     pub max_retries: i64,
 }
 
+// DTO untuk pembaruan monitor yang sudah ada
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateMonitorInput {
+    pub name: String,
+    pub monitor_type: String,
+    pub target: String,
+    pub interval_sec: i64,
+    pub timeout_sec: i64,
+    #[serde(default = "default_max_retries")]
+    pub max_retries: i64,
+}
+
 fn default_interval() -> i64 { 60 }
 fn default_timeout() -> i64 { 10 }
 fn default_max_retries() -> i64 { 3 }
@@ -134,6 +146,22 @@ impl Monitor {
                  consecutive_fails = 0
              WHERE id = ?1",
             params![id],
+        )?;
+        Ok(affected > 0)
+    }
+
+    // Memperbarui konfigurasi monitor yang sudah ada
+    pub async fn update(db: &DbPool, id: i64, input: &UpdateMonitorInput) -> Result<bool> {
+        let conn = db.lock().await;
+        let max_retries = input.max_retries.clamp(1, 10);
+        let interval_sec = input.interval_sec.max(5);
+        let timeout_sec = input.timeout_sec.max(1);
+
+        let affected = conn.execute(
+            "UPDATE monitors 
+             SET name = ?1, monitor_type = ?2, target = ?3, interval_sec = ?4, timeout_sec = ?5, max_retries = ?6
+             WHERE id = ?7",
+            params![input.name, input.monitor_type, input.target, interval_sec, timeout_sec, max_retries, id],
         )?;
         Ok(affected > 0)
     }

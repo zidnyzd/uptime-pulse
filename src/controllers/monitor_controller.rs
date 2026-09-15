@@ -70,6 +70,41 @@ pub async fn store(
     }
 }
 
+// PUT /api/monitors/{id} - Memperbarui konfigurasi monitor yang sudah ada
+pub async fn update(
+    State(state): State<Arc<MonitorControllerState>>,
+    Path(id): Path<i64>,
+    Json(input): Json<crate::models::monitor::UpdateMonitorInput>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    if input.name.trim().is_empty() || input.target.trim().is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Nama dan target wajib diisi".to_string()));
+    }
+
+    match Monitor::update(&state.db, id, &input).await {
+        Ok(true) => {
+            // Trigger check ulang dengan parameter baru
+            let db_clone = state.db.clone();
+            let tx_clone = state.event_tx.clone();
+            let input_clone = input.clone();
+            tokio::spawn(async move {
+                run_probe_and_record(
+                    &db_clone,
+                    &tx_clone,
+                    id,
+                    &input_clone.monitor_type,
+                    &input_clone.target,
+                    input_clone.timeout_sec,
+                )
+                .await;
+            });
+
+            Ok(Json(json!({ "success": true, "message": "Monitor berhasil diperbarui" })))
+        }
+        Ok(false) => Err((StatusCode::NOT_FOUND, "Monitor tidak ditemukan".to_string())),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+    }
+}
+
 // DELETE /api/monitors/{id} - Menghapus monitor beserta rekaman lognya
 pub async fn destroy(
     State(state): State<Arc<MonitorControllerState>>,
