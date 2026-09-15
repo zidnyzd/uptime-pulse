@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use crate::controllers::{
     auth_controller::{self, AuthControllerState},
+    backup_controller::{self, BackupControllerState},
     monitor_controller::{self, MonitorControllerState},
     public_controller::{self, PublicControllerState},
     setting_controller::{self, SettingControllerState},
@@ -67,6 +68,14 @@ pub fn build_api_router(db: DbPool, event_tx: EventSender) -> Router {
             post(setting_controller::test_telegram_notification),
         )
         .with_state(setting_controller_state)
+        .route_layer(from_fn_with_state(auth_mw_state.clone(), require_admin_auth));
+
+    let backup_controller_state = Arc::new(BackupControllerState { db: db.clone() });
+    let admin_backup_routes = Router::new()
+        .route("/api/backup/export", get(backup_controller::export_json))
+        .route("/api/backup/database", get(backup_controller::download_database))
+        .route("/api/backup/restore", post(backup_controller::restore_json))
+        .with_state(backup_controller_state)
         .route_layer(from_fn_with_state(auth_mw_state, require_admin_auth));
 
     Router::new()
@@ -74,4 +83,5 @@ pub fn build_api_router(db: DbPool, event_tx: EventSender) -> Router {
         .merge(public_routes)
         .merge(admin_monitor_routes)
         .merge(admin_setting_routes)
+        .merge(admin_backup_routes)
 }

@@ -732,6 +732,131 @@ function formatDuration(sec) {
   return `${h}h ${m % 60}m`;
 }
 
+// --- Backup & Restore Functions ---
+function openBackupModal() {
+  document.getElementById('backup-modal').style.display = 'flex';
+  const statusMsg = document.getElementById('restore-status-msg');
+  if (statusMsg) statusMsg.style.display = 'none';
+}
+
+function closeBackupModal() {
+  document.getElementById('backup-modal').style.display = 'none';
+  const form = document.getElementById('restore-form');
+  if (form) form.reset();
+}
+
+async function handleExportJson() {
+  try {
+    const res = await apiFetch('/api/backup/export');
+    if (!res.ok) throw new Error('Gagal mengunduh backup');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const now = new Date().toISOString().slice(0, 10);
+    a.download = `uptimepulse-backup-${now}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Export backup gagal: ' + err);
+  }
+}
+
+async function handleDownloadDb() {
+  try {
+    const res = await apiFetch('/api/backup/database');
+    if (!res.ok) throw new Error('Gagal mengunduh file database');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const now = new Date().toISOString().slice(0, 10);
+    a.download = `uptimepulse-${now}.db`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Download database gagal: ' + err);
+  }
+}
+
+async function handleRestoreBackup(e) {
+  e.preventDefault();
+  const fileInput = document.getElementById('restore-file-input');
+  const modeSelect = document.getElementById('restore-mode');
+  const statusMsg = document.getElementById('restore-status-msg');
+  const submitBtn = document.getElementById('btn-restore-submit');
+
+  if (!fileInput.files || fileInput.files.length === 0) {
+    alert('Pilih file backup .json terlebih dahulu.');
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const mode = modeSelect.value;
+
+  if (mode === 'replace') {
+    if (!confirm('PERINGATAN: Mode Ganti Total (Replace) akan menghapus seluruh data monitor lama dan menggantinya dengan isi file backup ini. Lanjutkan?')) {
+      return;
+    }
+  }
+
+  statusMsg.style.display = 'none';
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Restoring...';
+
+  const reader = new FileReader();
+  reader.onload = async (event) => {
+    try {
+      const jsonContent = JSON.parse(event.target.result);
+
+      const payload = {
+        mode: mode,
+        backup: jsonContent
+      };
+
+      const res = await apiFetch('/api/backup/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        statusMsg.textContent = data.message || 'Data berhasil dipulihkan!';
+        statusMsg.style.color = 'var(--green)';
+        statusMsg.style.display = 'block';
+        await loadMonitors();
+        setTimeout(closeBackupModal, 1500);
+      } else {
+        statusMsg.textContent = 'Gagal memulihkan: ' + (data.error || 'Format tidak cocok');
+        statusMsg.style.color = 'var(--red)';
+        statusMsg.style.display = 'block';
+      }
+    } catch (parseErr) {
+      statusMsg.textContent = 'File bukan JSON yang valid: ' + parseErr.message;
+      statusMsg.style.color = 'var(--red)';
+      statusMsg.style.display = 'block';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Restore Backup';
+    }
+  };
+
+  reader.onerror = () => {
+    statusMsg.textContent = 'Gagal membaca file dari disk.';
+    statusMsg.style.color = 'var(--red)';
+    statusMsg.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Restore Backup';
+  };
+
+  reader.readAsText(file);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   checkAuth();
 });
