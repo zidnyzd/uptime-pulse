@@ -4,6 +4,10 @@ on:
   push:
     branches: [ "master", "main" ]
     tags: [ "v*.*.*" ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
   workflow_dispatch:
 
 env:
