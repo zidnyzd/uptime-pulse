@@ -8,14 +8,20 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
   gap: 16px;
 }
 
-.top-bar-right {
+.top-bar-meta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+}
+
+.top-bar-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Language Switcher Pill in Public Page */
@@ -492,7 +498,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 8px;
 }
 
 .incident-service-badge {
@@ -502,6 +510,8 @@
   font-size: 13px;
   font-weight: 600;
   color: #f7f8f8;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .incident-badge-pill {
@@ -513,11 +523,13 @@
   background: rgba(248, 81, 73, 0.2);
   color: var(--red);
   border: 1px solid rgba(248, 81, 73, 0.4);
+  flex-shrink: 0;
 }
 
 .incident-start-time {
   font-size: 11px;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .incident-error-detail {
@@ -584,20 +596,78 @@
 }
 
 /* ============================================================
-   Mobile Breakpoint (< 640px)
+   Mobile Breakpoint (< 640px) - Ide 1: 2-Tier Stacked App-Bar
    ============================================================ */
 @media (max-width: 640px) {
   .top-bar {
-    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 14px;
+    margin-bottom: 22px;
   }
 
-  .live-badge span {
-    display: none;
+  /* Baris 1 di Mobile: Utility Bar (Live Status di kiri, Theme & Lang di kanan) */
+  .top-bar-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .top-bar-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Baris 2 di Mobile: Full-width Brand Row (Logo + Nama Brand Utuh 1 Baris) */
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .brand-icon {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
+    border-radius: 10px;
+  }
+
+  .brand-name {
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .live-badge {
-    padding: 6px;
-    border-radius: 50%;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    gap: 6px;
+  }
+
+  .live-badge span {
+    display: inline-block;
+  }
+
+  .incident-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .incident-start-time {
+    font-size: 10px;
+    opacity: 0.85;
   }
 
   .hero-status-wrap {

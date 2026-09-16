@@ -10,7 +10,7 @@
 </head>
 <body>
   <div class="container">
-    <!-- Top Bar Navigation -->
+    <!-- Top Bar Navigation (Responsive: 1-line on Desktop, 2-Tier Stacked on Mobile) -->
     <header class="top-bar">
       <div class="brand">
         <div class="brand-icon" id="public-brand-logo-wrap">
@@ -21,34 +21,36 @@
         <div class="brand-name" id="public-brand-title" data-i18n="brand_title">System Status</div>
       </div>
 
-      <div class="top-bar-right">
-        <!-- Theme Toggle (Light / Dark) -->
-        <button type="button" class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
-          <svg class="sun-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="23"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-            <line x1="1" y1="12" x2="3" y2="12"></line>
-            <line x1="21" y1="12" x2="23" y2="12"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-          </svg>
-          <svg class="moon-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </button>
-
-        <!-- Language Switcher (ID / EN) -->
-        <div class="lang-switcher" title="Switch Language / Ganti Bahasa">
-          <button type="button" class="lang-btn" id="lang-btn-id" onclick="setLanguage('id')">ID</button>
-          <button type="button" class="lang-btn active" id="lang-btn-en" onclick="setLanguage('en')">EN</button>
-        </div>
-
+      <div class="top-bar-meta">
         <div class="live-badge">
           <div class="live-dot"></div>
           <span data-i18n="live_active">Live updates active</span>
+        </div>
+
+        <div class="top-bar-controls">
+          <!-- Theme Toggle (Light / Dark) -->
+          <button type="button" class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
+            <svg class="sun-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg class="moon-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+
+          <!-- Language Switcher (ID / EN) -->
+          <div class="lang-switcher" title="Switch Language / Ganti Bahasa">
+            <button type="button" class="lang-btn" id="lang-btn-id" onclick="setLanguage('id')">ID</button>
+            <button type="button" class="lang-btn active" id="lang-btn-en" onclick="setLanguage('en')">EN</button>
+          </div>
         </div>
       </div>
     </header>
