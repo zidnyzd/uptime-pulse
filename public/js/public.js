@@ -338,7 +338,43 @@ function initPublicSSE() {
   } catch (err) {}
 }
 
+// --- Theme Handling (Dark / Light) ---
+let currentTheme = localStorage.getItem('uptime_theme') || 'dark';
+
+function initTheme() {
+  setTheme(currentTheme);
+}
+
+function toggleTheme() {
+  const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  setTheme(nextTheme);
+}
+
+function setTheme(theme) {
+  currentTheme = theme;
+  localStorage.setItem('uptime_theme', theme);
+  document.documentElement.setAttribute('data-theme', theme);
+
+  const btn = document.getElementById('theme-toggle');
+  if (btn) {
+    const sunIcon = btn.querySelector('.sun-icon');
+    const moonIcon = btn.querySelector('.moon-icon');
+    if (sunIcon && moonIcon) {
+      if (theme === 'light') {
+        sunIcon.style.display = 'none';
+        moonIcon.style.display = 'block';
+        btn.title = currentPublicLang === 'id' ? 'Ganti ke Mode Gelap' : 'Switch to Dark Mode';
+      } else {
+        sunIcon.style.display = 'block';
+        moonIcon.style.display = 'none';
+        btn.title = currentPublicLang === 'id' ? 'Ganti ke Mode Terang' : 'Switch to Light Mode';
+      }
+    }
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   setLanguage(currentPublicLang);
   loadPublicData();
   initPublicSSE();

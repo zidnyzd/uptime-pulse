@@ -653,3 +653,90 @@
     padding-top: 16px;
   }
 }
+
+/* ============================================================
+   Light Mode Overrides for Public Status Page
+   ============================================================ */
+[data-theme="light"] .brand-name {
+  color: #090d13;
+}
+
+[data-theme="light"] .lang-btn:hover {
+  color: #090d13;
+}
+
+[data-theme="light"] .lang-btn.active {
+  background: #ffffff;
+  color: #090d13;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .live-badge {
+  background: rgba(0, 0, 0, 0.04);
+  color: #1f2328;
+}
+
+[data-theme="light"] .hero-main-title {
+  color: #090d13;
+}
+
+[data-theme="light"] .hero-subtitle {
+  color: #59636e;
+}
+
+[data-theme="light"] .unified-metrics-strip {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .metric-col .metric-num {
+  color: #090d13;
+}
+
+[data-theme="light"] .metric-col .metric-label {
+  color: #59636e;
+}
+
+[data-theme="light"] .metric-sep {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .services-grouped-list {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .service-row {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .service-row:hover {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="light"] .service-name {
+  color: #090d13;
+}
+
+[data-theme="light"] .strip-bar.empty {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+[data-theme="light"] .strip-footer {
+  color: #64748b;
+}
+
+[data-theme="light"] .strip-footer-uptime {
+  color: #334155;
+}
+
+[data-theme="light"] .empty-incident-feed {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #475569;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .footer-left {
+  color: #64748b;
+}

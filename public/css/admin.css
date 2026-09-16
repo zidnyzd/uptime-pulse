@@ -1244,3 +1244,177 @@
     padding: 18px;
   }
 }
+
+/* ============================================================
+   Light Mode Overrides for Admin Console
+   ============================================================ */
+[data-theme="light"] .sidebar {
+  background: #f6f8fa;
+  border-right: 1px solid #d0d7de;
+}
+
+[data-theme="light"] .brand-title {
+  color: #090d13;
+}
+
+[data-theme="light"] .engine-tag {
+  background: #eaeef2;
+  color: #59636e;
+  border-color: #d0d7de;
+}
+
+[data-theme="light"] .nav-section-label {
+  color: #59636e;
+}
+
+[data-theme="light"] .nav-link-btn {
+  color: #59636e;
+}
+
+[data-theme="light"] .nav-link-btn:hover {
+  background: #eaeef2;
+  color: #090d13;
+}
+
+[data-theme="light"] .nav-link-btn.active {
+  background: #e1e7ed;
+  color: #090d13;
+  font-weight: 600;
+}
+
+[data-theme="light"] .user-profile-card {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .user-name-text {
+  color: #090d13;
+}
+
+[data-theme="light"] .user-dropup-menu {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .dropup-item {
+  color: #1f2328;
+}
+
+[data-theme="light"] .dropup-item:hover {
+  background: #f6f8fa;
+}
+
+[data-theme="light"] .dropup-divider {
+  background: #d0d7de;
+}
+
+[data-theme="light"] .top-navbar {
+  background: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid #d0d7de;
+}
+
+[data-theme="light"] .page-headline-title {
+  color: #090d13;
+}
+
+[data-theme="light"] .page-breadcrumb {
+  color: #59636e;
+}
+
+[data-theme="light"] .live-indicator-tag {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: #d0d7de;
+  color: #1f2328;
+}
+
+[data-theme="light"] .bottom-bar {
+  background: rgba(246, 248, 250, 0.9);
+  border-top: 1px solid #d0d7de;
+}
+
+[data-theme="light"] .bottom-bar-center {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #59636e;
+}
+
+[data-theme="light"] .kpi-card {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .kpi-val {
+  color: #090d13;
+}
+
+[data-theme="light"] .kpi-label {
+  color: #59636e;
+}
+
+[data-theme="light"] .kpi-sub {
+  color: #64748b;
+}
+
+[data-theme="light"] .modal-title {
+  color: #090d13;
+}
+
+[data-theme="light"] .dropup-header-title {
+  color: #090d13;
+}
+
+[data-theme="light"] .widget-card {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .widget-name-title {
+  color: #090d13;
+}
+
+[data-theme="light"] .widget-metrics {
+  background: #f6f8fa;
+  border: 1px solid #e1e4e8;
+}
+
+[data-theme="light"] .metric-value {
+  color: #090d13;
+}
+
+[data-theme="light"] .bar.empty {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .widget-actions .btn-icon {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #59636e;
+}
+
+[data-theme="light"] .widget-actions .btn-icon:hover {
+  background: #f6f8fa;
+  color: #090d13;
+  border-color: #b0b8c1;
+}
+
+[data-theme="light"] .search-box input {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #1f2328;
+}
+
+[data-theme="light"] .filter-pill {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #59636e;
+}
+
+[data-theme="light"] .filter-pill.active {
+  background: #1f2328;
+  color: #ffffff;
+  border-color: #1f2328;
+}
