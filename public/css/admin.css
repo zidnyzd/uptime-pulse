@@ -968,6 +968,77 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+/* ============================================================
+   Dedicated Settings Views (Clean Pages instead of Popups)
+   ============================================================ */
+.settings-container {
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.settings-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+[data-theme="light"] .settings-card {
+  background: #ffffff;
+  border-color: #d0d7de;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.settings-card-header {
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+[data-theme="light"] .settings-card-header {
+  border-bottom-color: #edf2f7;
+}
+
+.settings-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f7f8f8;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+[data-theme="light"] .settings-card-title {
+  color: #090d13;
+}
+
+.settings-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--card-border);
+}
+
+[data-theme="light"] .settings-actions {
+  border-top-color: #edf2f7;
+}
+
 /* Modals */
 .modal-header {
   display: flex;

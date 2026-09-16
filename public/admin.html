@@ -58,7 +58,7 @@
           </button>
 
           <div class="nav-section-label" data-i18n="nav_settings">Settings &amp; Links</div>
-          <button class="nav-link-btn" onclick="openTelegramModal()">
+          <button class="nav-link-btn" id="nav-telegram" onclick="switchView('telegram')">
             <div class="nav-link-btn-content">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 2L11 13"></path>
@@ -68,7 +68,7 @@
             </div>
           </button>
 
-          <button class="nav-link-btn" onclick="openBrandingModal()">
+          <button class="nav-link-btn" id="nav-branding" onclick="switchView('branding')">
             <div class="nav-link-btn-content">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
@@ -77,7 +77,7 @@
             </div>
           </button>
 
-          <button class="nav-link-btn" onclick="openBackupModal()">
+          <button class="nav-link-btn" id="nav-backup" onclick="switchView('backup')">
             <div class="nav-link-btn-content">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -196,7 +196,7 @@
             </svg>
           </button>
 
-          <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+          <button class="btn btn-primary btn-sm" id="btn-add-monitor-top" onclick="openAddModal()">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -303,6 +303,268 @@
             </div>
           </div>
         </section>
+
+        <!-- View 3: Dedicated Telegram Settings Page -->
+        <section id="view-telegram" style="display: none;">
+          <div class="settings-container">
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2">
+                    <path d="M22 2L11 13"></path>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                  <span>Telegram Alert Configuration</span>
+                </div>
+                <div class="settings-card-desc">
+                  Kirim notifikasi otomatis secara real-time ke bot atau supergroup forum topics saat layanan mengalami gangguan (DOWN) dan pulih kembali (RECOVERED).
+                </div>
+              </div>
+
+              <form id="telegram-form" onsubmit="handleSaveTelegramSettings(event)">
+                <div class="form-group" style="display: flex; align-items: center; gap: 12px; background: var(--subtle-bg); padding: 14px 16px; border-radius: 8px; border: 1px solid var(--card-border); margin-bottom: 20px;">
+                  <input type="checkbox" id="tg-enabled" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--green);">
+                  <label for="tg-enabled" style="margin: 0; cursor: pointer; font-size: 13px; font-weight: 600; text-transform: none; color: var(--text-primary);">
+                    Aktifkan Notifikasi Telegram Otomatis (Enable Alerts)
+                  </label>
+                </div>
+
+                <div class="form-group">
+                  <label>Bot Token</label>
+                  <input type="text" class="form-control" id="tg-bot-token" placeholder="123456789:ABCdefGhIJKlmNoPQRstuvWXyz" required>
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Dapatkan token dengan membuat bot baru melalui @BotFather di Telegram</div>
+                </div>
+
+                <div class="form-group">
+                  <label>Chat ID</label>
+                  <input type="text" class="form-control" id="tg-chat-id" placeholder="-1001234567890 atau ID user" required>
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">ID akun pengguna, grup, atau channel (-100...) tempat notifikasi dikirimkan</div>
+                </div>
+
+                <div class="form-group">
+                  <label style="display: flex; justify-content: space-between;">
+                    <span>Message Thread ID (Forum Topic)</span>
+                    <span style="color: var(--blue); font-size: 10px;">Opsional</span>
+                  </label>
+                  <input type="number" class="form-control" id="tg-thread-id" placeholder="e.g. 42 (kosongkan jika bukan forum/topic)">
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Khusus Telegram Supergroup yang mengaktifkan fitur Forum / Topics terpisah</div>
+                </div>
+
+                <div id="tg-status-msg" style="font-size: 12px; margin-top: 12px; display: none;"></div>
+
+                <div class="settings-actions">
+                  <button type="button" class="btn btn-sm" id="btn-tg-test" onclick="handleTestTelegram()">
+                    Test Message
+                  </button>
+                  <button type="submit" class="btn btn-primary btn-sm" id="btn-tg-save">
+                    Save Settings
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- View 4: Dedicated Site Branding Page -->
+        <section id="view-branding" style="display: none;">
+          <div class="settings-container">
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+                  </svg>
+                  <span>Public Site Branding &amp; Identity</span>
+                </div>
+                <div class="settings-card-desc">
+                  Sesuaikan nama situs, subjudul hero, URL logo gambar, dan teks atribusi footer pada Halaman Status Publik secara langsung tanpa restart binary server.
+                </div>
+              </div>
+
+              <form id="branding-form" onsubmit="handleSaveBranding(event)">
+                <div class="form-group">
+                  <label data-i18n="branding_site_title_label">Nama Situs / Site Title</label>
+                  <input type="text" class="form-control" id="branding-title-input" placeholder="e.g. ZidStore Homelab Status" required>
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Tampil di header halaman publik, tab title browser, dan meta status</div>
+                </div>
+
+                <div class="form-group">
+                  <label style="display: flex; justify-content: space-between;">
+                    <span data-i18n="branding_site_sub_label">Subjudul Status Hero</span>
+                    <span style="color: var(--blue); font-size: 10px;">Opsional</span>
+                  </label>
+                  <input type="text" class="form-control" id="branding-sub-input" placeholder="e.g. All internal servers, OpenWrt router, and public nodes operational.">
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Keterangan di bawah banner status saat semua sistem berjalan normal</div>
+                </div>
+
+                <div class="form-group">
+                  <label style="display: flex; justify-content: space-between;">
+                    <span data-i18n="branding_logo_label">URL Logo Kustom</span>
+                    <span style="color: var(--blue); font-size: 10px;">Opsional</span>
+                  </label>
+                  <input type="url" class="form-control" id="branding-logo-input" placeholder="https://domain.com/logo.png (kosongkan untuk ikon pulse bawaan)">
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Mengganti ikon pulse bawaan dengan gambar logo proyek atau instansi</div>
+                </div>
+
+                <div class="form-group">
+                  <label style="display: flex; justify-content: space-between;">
+                    <span data-i18n="branding_footer_label">Teks / Atribusi Kustom Footer</span>
+                    <span style="color: var(--blue); font-size: 10px;">Opsional</span>
+                  </label>
+                  <input type="text" class="form-control" id="branding-footer-input" placeholder="e.g. Powered by UptimePulse • Muhammad Zidny Ilhami">
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Keterangan tambahan di sudut kanan bawah halaman publik</div>
+                </div>
+
+                <!-- Live Preview Inset Box -->
+                <div style="margin: 20px 0; background: var(--subtle-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 14px 18px;">
+                  <div style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">
+                    Preview Header Publik
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div id="branding-preview-logo" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                    </div>
+                    <span id="branding-preview-title" style="font-size: 15px; font-weight: 600; color: var(--text-primary);">System Status</span>
+                  </div>
+                </div>
+
+                <div id="branding-status-msg" style="font-size: 12px; margin-top: 12px; display: none;"></div>
+
+                <div class="settings-actions">
+                  <button type="submit" class="btn btn-primary btn-sm" id="btn-branding-save">
+                    Save Branding
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- View 5: Dedicated Backup & Flash Storage Maintenance Page -->
+        <section id="view-backup" style="display: none;">
+          <div class="settings-container">
+            <!-- Section 1: Export Data -->
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Export Data (Backup)</span>
+                </div>
+                <div class="settings-card-desc">
+                  Unduh seluruh definisi monitor, konfigurasi notifikasi, dan data historis untuk cadangan mandiri atau migrasi ke perangkat lain.
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-sm" onclick="handleExportJson()" style="flex: 1; justify-content: center; min-height: 38px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
+                  <span>Download Configuration JSON</span>
+                </button>
+                <button type="button" class="btn btn-sm" onclick="handleDownloadDb()" style="flex: 1; justify-content: center; min-height: 38px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                  </svg>
+                  <span>Download Raw SQLite (.db)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Section 2: Import & Restore Data -->
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  <span>Import &amp; Restore Data</span>
+                </div>
+                <div class="settings-card-desc">
+                  Pulihkan konfigurasi dari file JSON cadangan sebelumnya dengan mode ganti total atau penggabungan.
+                </div>
+              </div>
+
+              <form id="restore-form" onsubmit="handleRestoreBackup(event)">
+                <div class="form-group">
+                  <label>Pilih File Backup (.json)</label>
+                  <input type="file" class="form-control" id="restore-file-input" accept=".json,application/json" required style="padding: 8px;">
+                </div>
+
+                <div class="form-group">
+                  <label>Mode Pemulihan</label>
+                  <select class="form-control" id="restore-mode">
+                    <option value="replace">Ganti Total (Replace) — Hapus data lama &amp; timpa dengan file baru</option>
+                    <option value="merge">Gabungkan (Merge) — Tambahkan monitor baru tanpa menghapus yang ada</option>
+                  </select>
+                </div>
+
+                <div id="restore-status-msg" style="font-size: 12px; margin-top: 12px; display: none;"></div>
+
+                <div class="settings-actions">
+                  <button type="submit" class="btn btn-primary btn-sm" id="btn-restore-submit">
+                    Restore Backup Now
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Section 3: Flash Storage & Maintenance -->
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                  </svg>
+                  <span>Storage &amp; Maintenance (Flash Wear Protection)</span>
+                </div>
+                <div class="settings-card-desc">
+                  Memantau ukuran file database dan kesehatan flash storage (eMMC/ROM OpenWrt). Sistem secara otomatis merampingkan WAL buffer dan membersihkan log lama.
+                </div>
+              </div>
+
+              <div style="background: var(--subtle-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 16px; font-size: 12px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span style="color: var(--text-muted);">Database Path:</span>
+                  <span style="font-family: monospace; color: var(--text-primary);" id="db-stat-path">uptime.db</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span style="color: var(--text-muted);">Database Size:</span>
+                  <span style="font-family: monospace; color: var(--text-primary);" id="db-stat-size">-- KB</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span style="color: var(--text-muted);">Recorded Heartbeats:</span>
+                  <span style="font-family: monospace; color: var(--text-primary);" id="db-stat-heartbeats">--</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-muted);">Auto-Prune Retention:</span>
+                  <span style="color: var(--green); font-weight: 500;" id="db-stat-retention">30 Hari (Otomatis)</span>
+                </div>
+              </div>
+
+              <div id="prune-status-msg" style="font-size: 12px; margin-bottom: 12px; display: none;"></div>
+
+              <div class="settings-actions">
+                <button type="button" class="btn btn-sm" id="btn-manual-prune" onclick="handleManualPrune()" style="gap: 6px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                  <span>Prune Logs &amp; Checkpoint WAL</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       <!-- Bottom Bar (Navbar Bawah / Status Bar) -->
@@ -402,241 +664,6 @@
           <button type="submit" class="btn btn-primary">Save Monitor</button>
         </div>
       </form>
-    </div>
-  </div>
-
-  <!-- Telegram Settings Modal -->
-  <div class="modal-overlay" id="telegram-modal">
-    <div class="modal" style="max-width: 460px;">
-      <div class="modal-header">
-        <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2">
-            <path d="M22 2L11 13"></path>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
-          <span>Telegram Notifications</span>
-        </div>
-        <button class="btn-icon" onclick="closeTelegramModal()">&times;</button>
-      </div>
-
-      <form id="telegram-form" onsubmit="handleSaveTelegramSettings(event)">
-        <div class="form-group" style="display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.03); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--card-border);">
-          <input type="checkbox" id="tg-enabled" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--green);">
-          <label for="tg-enabled" style="margin: 0; cursor: pointer; font-size: 13px; font-weight: 500; text-transform: none; color: #f7f8f8;">
-            Enable Telegram Downtime &amp; Recovery Alerts
-          </label>
-        </div>
-
-        <div class="form-group">
-          <label>Bot Token</label>
-          <input type="text" class="form-control" id="tg-bot-token" placeholder="123456789:ABCdefGhIJKlmNoPQRstuvWXyz" required>
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Dapatkan token dari @BotFather di Telegram</div>
-        </div>
-
-        <div class="form-group">
-          <label>Chat ID</label>
-          <input type="text" class="form-control" id="tg-chat-id" placeholder="-1001234567890 atau ID user" required>
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">ID akun pribadi, grup, atau channel (-100...)</div>
-        </div>
-
-        <div class="form-group">
-          <label style="display: flex; justify-content: space-between;">
-            <span>Message Thread ID (Topic)</span>
-            <span style="color: var(--blue); font-size: 10px;">Opsional</span>
-          </label>
-          <input type="number" class="form-control" id="tg-thread-id" placeholder="e.g. 42 (kosongkan jika bukan forum/topic)">
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Khusus Telegram Supergroup dengan fitur Forum / Topic terpisah</div>
-        </div>
-
-        <div id="tg-status-msg" style="font-size: 12px; margin-bottom: 12px; display: none;"></div>
-
-        <div class="modal-footer" style="display: flex; justify-content: space-between;">
-          <button type="button" class="btn btn-sm" id="btn-tg-test" onclick="handleTestTelegram()">
-            Test Message
-          </button>
-          <div style="display: flex; gap: 8px;">
-            <button type="button" class="btn btn-sm" onclick="closeTelegramModal()">Cancel</button>
-            <button type="submit" class="btn btn-primary btn-sm" id="btn-tg-save">Save Settings</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Site Branding & Identity Modal -->
-  <div class="modal-overlay" id="branding-modal">
-    <div class="modal" style="max-width: 500px;">
-      <div class="modal-header">
-        <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2">
-            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
-          </svg>
-          <span data-i18n="modal_branding_title">Site Branding &amp; Identity</span>
-        </div>
-        <button class="btn-icon" onclick="closeBrandingModal()">&times;</button>
-      </div>
-
-      <form id="branding-form" onsubmit="handleSaveBranding(event)">
-        <div class="form-group">
-          <label data-i18n="branding_site_title_label">Nama Situs / Site Title</label>
-          <input type="text" class="form-control" id="branding-title-input" placeholder="e.g. ZidStore Network Status" required>
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Tampil di header halaman publik, tab browser, dan meta deskripsi</div>
-        </div>
-
-        <div class="form-group">
-          <label style="display: flex; justify-content: space-between;">
-            <span data-i18n="branding_site_sub_label">Subjudul Status Hero</span>
-            <span style="color: var(--blue); font-size: 10px;">Opsional</span>
-          </label>
-          <input type="text" class="form-control" id="branding-sub-input" placeholder="e.g. All monitored network targets and infrastructure are running normally.">
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Keterangan di bawah banner status saat semua sistem berjalan normal</div>
-        </div>
-
-        <div class="form-group">
-          <label style="display: flex; justify-content: space-between;">
-            <span data-i18n="branding_logo_label">URL Logo Kustom</span>
-            <span style="color: var(--blue); font-size: 10px;">Opsional</span>
-          </label>
-          <input type="url" class="form-control" id="branding-logo-input" placeholder="https://domain.com/logo.png (atau kosongkan untuk default pulse)">
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Mengganti ikon pulse bawaan dengan logo instansi/projek Anda</div>
-        </div>
-
-        <div class="form-group">
-          <label style="display: flex; justify-content: space-between;">
-            <span data-i18n="branding_footer_label">Teks / Atribusi Kustom Footer</span>
-            <span style="color: var(--blue); font-size: 10px;">Opsional</span>
-          </label>
-          <input type="text" class="form-control" id="branding-footer-input" placeholder="e.g. Powered by UptimePulse • ZidStore Homelab">
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Keterangan tambahan di sudut kanan bawah halaman publik</div>
-        </div>
-
-        <!-- Live Preview Inset Box -->
-        <div style="margin-bottom: 16px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 12px;">
-          <div style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
-            Preview Header Publik
-          </div>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <div id="branding-preview-logo" style="width: 28px; height: 28px; border-radius: 6px; background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); display: flex; align-items: center; justify-content: center; overflow: hidden;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-            </div>
-            <span id="branding-preview-title" style="font-size: 14px; font-weight: 600; color: #f7f8f8;">System Status</span>
-          </div>
-        </div>
-
-        <div id="branding-status-msg" style="font-size: 12px; margin-bottom: 12px; display: none;"></div>
-
-        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
-          <button type="button" class="btn btn-sm" onclick="closeBrandingModal()">Cancel</button>
-          <button type="submit" class="btn btn-primary btn-sm" id="btn-branding-save">Save Branding</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Backup & Restore Modal -->
-  <div class="modal-overlay" id="backup-modal">
-    <div class="modal" style="max-width: 480px;">
-      <div class="modal-header">
-        <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          <span>Backup &amp; Restore</span>
-        </div>
-        <button class="btn-icon" onclick="closeBackupModal()">&times;</button>
-      </div>
-
-      <!-- Section 1: Export Data -->
-      <div style="margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--card-border);">
-        <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
-          Export Data (Backup)
-        </label>
-        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.4;">
-          Unduh seluruh data monitor dan konfigurasi untuk cadangan atau migrasi ke server/router lain.
-        </p>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <button type="button" class="btn btn-sm" onclick="handleExportJson()" style="flex: 1; justify-content: center; min-height: 36px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-            </svg>
-            <span>Download JSON</span>
-          </button>
-          <button type="button" class="btn btn-sm" onclick="handleDownloadDb()" style="flex: 1; justify-content: center; min-height: 36px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
-              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
-            </svg>
-            <span>Download SQLite (.db)</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Section 2: Import & Restore Data -->
-      <form id="restore-form" onsubmit="handleRestoreBackup(event)">
-        <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
-          Import &amp; Restore (JSON)
-        </label>
-        <div class="form-group">
-          <label>Pilih File Backup (.json)</label>
-          <input type="file" class="form-control" id="restore-file-input" accept=".json,application/json" required style="padding: 8px;">
-        </div>
-
-        <div class="form-group">
-          <label>Mode Pemulihan</label>
-          <select class="form-control" id="restore-mode">
-            <option value="replace">Ganti Total (Replace) — Hapus data lama &amp; timpa baru</option>
-            <option value="merge">Gabungkan (Merge) — Tambahkan monitor baru tanpa hapus yang lama</option>
-          </select>
-        </div>
-
-        <div id="restore-status-msg" style="font-size: 12px; margin-bottom: 12px; display: none;"></div>
-
-        <div class="modal-footer" style="margin-top: 18px;">
-          <button type="button" class="btn btn-sm" onclick="closeBackupModal()">Cancel</button>
-          <button type="submit" class="btn btn-primary btn-sm" id="btn-restore-submit">
-            Restore Backup
-          </button>
-        </div>
-      </form>
-
-      <!-- Section 3: SQLite Storage & Maintenance (OpenWrt Flash Protection) -->
-      <div style="margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--card-border);">
-        <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
-          Storage &amp; Maintenance (Flash Protection)
-        </label>
-        <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 12px; font-size: 12px; margin-bottom: 12px;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-            <span style="color: var(--text-muted);">Database Path:</span>
-            <span style="font-family: monospace; color: #f7f8f8;" id="db-stat-path">uptime.db</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-            <span style="color: var(--text-muted);">Database Size:</span>
-            <span style="font-family: monospace; color: #f7f8f8;" id="db-stat-size">-- KB</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-            <span style="color: var(--text-muted);">Recorded Heartbeats:</span>
-            <span style="font-family: monospace; color: #f7f8f8;" id="db-stat-heartbeats">--</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-muted);">Auto-Prune Retention:</span>
-            <span style="color: var(--green); font-weight: 500;" id="db-stat-retention">30 Hari</span>
-          </div>
-        </div>
-        <div style="display: flex; justify-content: flex-end;">
-          <button type="button" class="btn btn-sm" id="btn-manual-prune" onclick="handleManualPrune()" style="gap: 6px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-            <span>Prune Logs &amp; Checkpoint WAL</span>
-          </button>
-        </div>
-        <div id="prune-status-msg" style="font-size: 11px; margin-top: 8px; display: none;"></div>
-      </div>
     </div>
   </div>
 

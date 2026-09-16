@@ -3,6 +3,7 @@ let monitorsMap = new Map();
 let detailsMap = new Map();
 let currentFilter = 'all';
 let searchQuery = '';
+let currentActiveView = 'monitors';
 
 // --- Internationalization (i18n: ID & EN) ---
 const i18n = {
@@ -28,8 +29,18 @@ const i18n = {
     title_overview_mobile: 'Ringkasan',
     title_incidents_desktop: 'Riwayat Insiden & Downtime',
     title_incidents_mobile: 'Insiden',
+    title_telegram_desktop: 'Konfigurasi Notifikasi Telegram',
+    title_telegram_mobile: 'Telegram',
+    title_branding_desktop: 'Kustomisasi Identitas & Branding',
+    title_branding_mobile: 'Branding',
+    title_backup_desktop: 'Backup & Pemeliharaan Storage',
+    title_backup_mobile: 'Backup & Storage',
+
     breadcrumb_monitors: 'UptimePulse / Prober Real-time / Monitor Aktif',
     breadcrumb_incidents: 'UptimePulse / Siklus Insiden / Catatan Gangguan',
+    breadcrumb_telegram: 'UptimePulse / Pengaturan / Notifikasi Telegram',
+    breadcrumb_branding: 'UptimePulse / Pengaturan / Branding Publik',
+    breadcrumb_backup: 'UptimePulse / Pengaturan / Backup & Storage',
     top_live_sync: 'Live Sync',
     btn_add: 'Tambah',
     btn_monitor: 'Monitor',
@@ -83,8 +94,18 @@ const i18n = {
     title_overview_mobile: 'Overview',
     title_incidents_desktop: 'Incident History & Downtime Log',
     title_incidents_mobile: 'Incidents',
+    title_telegram_desktop: 'Telegram Alert Configuration',
+    title_telegram_mobile: 'Telegram',
+    title_branding_desktop: 'Site Branding & Customization',
+    title_branding_mobile: 'Branding',
+    title_backup_desktop: 'Backup & Storage Maintenance',
+    title_backup_mobile: 'Backup & Storage',
+
     breadcrumb_monitors: 'UptimePulse / Realtime Prober / Active Monitors',
     breadcrumb_incidents: 'UptimePulse / Incident Lifecycle / Outage History',
+    breadcrumb_telegram: 'UptimePulse / Settings / Telegram Alert',
+    breadcrumb_branding: 'UptimePulse / Settings / Site Branding',
+    breadcrumb_backup: 'UptimePulse / Settings / Backup & Storage',
     top_live_sync: 'Live Sync',
     btn_add: 'Add',
     btn_monitor: 'Monitor',
@@ -159,24 +180,40 @@ function setLanguage(lang) {
 }
 
 function updateViewTitles() {
-  const isIncidents = document.getElementById('view-incidents') && document.getElementById('view-incidents').style.display !== 'none';
   const pageTitle = document.getElementById('page-title');
   const breadcrumb = document.getElementById('page-breadcrumb');
+  const addBtn = document.getElementById('btn-add-monitor-top');
 
-  if (isIncidents) {
-    if (pageTitle) {
-      pageTitle.innerHTML = `<span class="desktop-title">${i18n[currentLang].title_incidents_desktop}</span><span class="mobile-title">${i18n[currentLang].title_incidents_mobile}</span>`;
-    }
-    if (breadcrumb) {
-      breadcrumb.textContent = i18n[currentLang].breadcrumb_incidents;
-    }
-  } else {
-    if (pageTitle) {
-      pageTitle.innerHTML = `<span class="desktop-title">${i18n[currentLang].title_overview_desktop}</span><span class="mobile-title">${i18n[currentLang].title_overview_mobile}</span>`;
-    }
-    if (breadcrumb) {
-      breadcrumb.textContent = i18n[currentLang].breadcrumb_monitors;
-    }
+  let titleDesk = i18n[currentLang].title_overview_desktop;
+  let titleMob = i18n[currentLang].title_overview_mobile;
+  let bc = i18n[currentLang].breadcrumb_monitors;
+
+  if (currentActiveView === 'incidents') {
+    titleDesk = i18n[currentLang].title_incidents_desktop;
+    titleMob = i18n[currentLang].title_incidents_mobile;
+    bc = i18n[currentLang].breadcrumb_incidents;
+  } else if (currentActiveView === 'telegram') {
+    titleDesk = i18n[currentLang].title_telegram_desktop;
+    titleMob = i18n[currentLang].title_telegram_mobile;
+    bc = i18n[currentLang].breadcrumb_telegram;
+  } else if (currentActiveView === 'branding') {
+    titleDesk = i18n[currentLang].title_branding_desktop;
+    titleMob = i18n[currentLang].title_branding_mobile;
+    bc = i18n[currentLang].breadcrumb_branding;
+  } else if (currentActiveView === 'backup') {
+    titleDesk = i18n[currentLang].title_backup_desktop;
+    titleMob = i18n[currentLang].title_backup_mobile;
+    bc = i18n[currentLang].breadcrumb_backup;
+  }
+
+  if (pageTitle) {
+    pageTitle.innerHTML = `<span class="desktop-title">${titleDesk}</span><span class="mobile-title">${titleMob}</span>`;
+  }
+  if (breadcrumb) {
+    breadcrumb.textContent = bc;
+  }
+  if (addBtn) {
+    addBtn.style.display = currentActiveView === 'monitors' ? 'inline-flex' : 'none';
   }
 }
 
@@ -992,10 +1029,9 @@ async function handleSaveTelegramSettings(e) {
     });
 
     if (res.ok) {
-      statusMsg.textContent = 'Pengaturan Telegram berhasil disimpan!';
+      statusMsg.textContent = currentLang === 'id' ? 'Pengaturan Telegram berhasil disimpan!' : 'Telegram settings saved successfully!';
       statusMsg.style.color = 'var(--green)';
       statusMsg.style.display = 'block';
-      setTimeout(closeTelegramModal, 1200);
     } else {
       const err = await res.text();
       statusMsg.textContent = 'Gagal menyimpan: ' + err;
@@ -1137,7 +1173,6 @@ async function handleSaveBranding(e) {
       statusMsg.textContent = currentLang === 'id' ? 'Branding berhasil disimpan!' : 'Branding saved successfully!';
       statusMsg.style.color = 'var(--green)';
       statusMsg.style.display = 'block';
-      setTimeout(closeBrandingModal, 1200);
     } else {
       throw new Error(data.error || 'Failed to save branding');
     }
@@ -1165,32 +1200,61 @@ function toggleSidebar() {
 }
 
 async function switchView(viewName) {
-  const monitorsView = document.getElementById('view-monitors');
-  const incidentsView = document.getElementById('view-incidents');
-  const navMonitors = document.getElementById('nav-monitors');
-  const navIncidents = document.getElementById('nav-incidents');
+  currentActiveView = viewName;
 
-  if (viewName === 'incidents') {
-    monitorsView.style.display = 'none';
-    incidentsView.style.display = 'block';
-    navMonitors.classList.remove('active');
-    navIncidents.classList.add('active');
-    updateViewTitles();
-    await loadIncidents();
-  } else {
-    monitorsView.style.display = 'block';
-    incidentsView.style.display = 'none';
-    navMonitors.classList.add('active');
-    navIncidents.classList.remove('active');
-    updateViewTitles();
+  const views = {
+    monitors: document.getElementById('view-monitors'),
+    incidents: document.getElementById('view-incidents'),
+    telegram: document.getElementById('view-telegram'),
+    branding: document.getElementById('view-branding'),
+    backup: document.getElementById('view-backup'),
+  };
+
+  const navs = {
+    monitors: document.getElementById('nav-monitors'),
+    incidents: document.getElementById('nav-incidents'),
+    telegram: document.getElementById('nav-telegram'),
+    branding: document.getElementById('nav-branding'),
+    backup: document.getElementById('nav-backup'),
+  };
+
+  for (const [key, el] of Object.entries(views)) {
+    if (el) el.style.display = key === viewName ? 'block' : 'none';
   }
 
-  // Close mobile sidebar if open
+  for (const [key, el] of Object.entries(navs)) {
+    if (el) {
+      if (key === viewName) el.classList.add('active');
+      else el.classList.remove('active');
+    }
+  }
+
+  updateViewTitles();
+
+  // Muat data yang sesuai dengan halaman pengaturan/view
+  if (viewName === 'monitors') {
+    renderMonitors();
+    recalcStats();
+  } else if (viewName === 'incidents') {
+    await loadIncidents();
+  } else if (viewName === 'telegram') {
+    await loadTelegramSettings();
+  } else if (viewName === 'branding') {
+    const titleInput = document.getElementById('branding-title-input');
+    const logoInput = document.getElementById('branding-logo-input');
+    if (titleInput) titleInput.oninput = updateBrandingPreview;
+    if (logoInput) logoInput.oninput = updateBrandingPreview;
+    await loadBrandingSettings();
+  } else if (viewName === 'backup') {
+    await loadDbStats();
+  }
+
+  // Tutup drawer sidebar mobile jika sedang terbuka
   const sidebar = document.getElementById('sidebar');
   const backdrop = document.getElementById('sidebar-backdrop');
-  if (sidebar.classList.contains('open')) {
+  if (sidebar && sidebar.classList.contains('open')) {
     sidebar.classList.remove('open');
-    backdrop.classList.remove('active');
+    if (backdrop) backdrop.classList.remove('active');
   }
 }
 
