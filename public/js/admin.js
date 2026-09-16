@@ -5,6 +5,42 @@ let currentFilter = 'all';
 let searchQuery = '';
 let currentActiveView = 'monitors';
 
+// --- Toast & Confirm UI (pengganti alert()/confirm() bawaan browser) ---
+function showToast(message, type = 'error') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const el = document.createElement('div');
+  el.className = `toast toast-${type === 'success' ? 'success' : 'error'}`;
+  el.innerHTML = `<span class="toast-icon">${type === 'success' ? '✓' : '⚠'}</span><span></span>`;
+  el.querySelector('span:last-child').textContent = message;
+  const dismiss = () => {
+    el.classList.add('toast-out');
+    setTimeout(() => el.remove(), 220);
+  };
+  el.addEventListener('click', dismiss);
+  container.appendChild(el);
+  setTimeout(dismiss, 5000);
+  // Batasi tumpukan agar tidak menutupi layar
+  while (container.children.length > 4) container.firstChild.remove();
+}
+
+let confirmResolve = null;
+function showConfirm(message, opts = {}) {
+  const modal = document.getElementById('confirm-modal');
+  document.getElementById('confirm-title').textContent = opts.title || (currentLang === 'id' ? 'Konfirmasi' : 'Confirm');
+  document.getElementById('confirm-message').textContent = message;
+  const okBtn = document.getElementById('confirm-ok-btn');
+  okBtn.textContent = opts.okLabel || (currentLang === 'id' ? 'Ya, Lanjutkan' : 'Yes, Continue');
+  okBtn.classList.toggle('danger', opts.danger !== false);
+  document.getElementById('confirm-cancel-btn').textContent = currentLang === 'id' ? 'Batal' : 'Cancel';
+  modal.style.display = 'flex';
+  return new Promise((resolve) => { confirmResolve = resolve; });
+}
+function closeConfirmModal(result) {
+  document.getElementById('confirm-modal').style.display = 'none';
+  if (confirmResolve) { confirmResolve(!!result); confirmResolve = null; }
+}
+
 // --- Internationalization (i18n: ID & EN) ---
 const i18n = {
   id: {
@@ -722,7 +758,7 @@ async function checkNow(id) {
     await apiFetch(`/api/monitors/${id}/check`, { method: 'POST' });
     loadDetails(id);
   } catch (err) {
-    alert('Check failed: ' + err);
+    showToast('Check failed: ' + err);
   }
 }
 
@@ -732,21 +768,25 @@ async function togglePause(id) {
     await apiFetch(`/api/monitors/${id}/pause`, { method: 'POST' });
     loadDetails(id);
   } catch (err) {
-    alert('Action failed: ' + err);
+    showToast('Action failed: ' + err);
   }
 }
 
 // Action Delete
 async function deleteMonitor(id) {
-  if (!confirm('Apakah Anda yakin ingin menghapus monitor ini?')) return;
+  const msg = currentLang === 'id'
+    ? 'Hapus monitor ini beserta seluruh riwayatnya?'
+    : 'Delete this monitor and all its history?';
+  if (!(await showConfirm(msg, { danger: true }))) return;
   try {
     await apiFetch(`/api/monitors/${id}`, { method: 'DELETE' });
     monitorsMap.delete(id);
     detailsMap.delete(id);
     renderMonitors();
     recalcStats();
+    showToast(currentLang === 'id' ? 'Monitor berhasil dihapus.' : 'Monitor deleted.', 'success');
   } catch (err) {
-    alert('Delete failed: ' + err);
+    showToast('Delete failed: ' + err);
   }
 }
 
@@ -755,20 +795,21 @@ async function resetStats(id) {
   const msg = currentLang === 'id'
     ? 'Reset seluruh statistik monitor ini dari awal?\nSemua riwayat heartbeat dan insiden akan dihapus permanen.'
     : 'Reset all stats for this monitor from scratch?\nAll heartbeat history and incidents will be permanently deleted.';
-  if (!confirm(msg)) return;
+  if (!(await showConfirm(msg, { danger: true }))) return;
   try {
     const res = await apiFetch(`/api/monitors/${id}/reset`, { method: 'POST' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.success === false) {
-      alert((currentLang === 'id' ? 'Reset gagal: ' : 'Reset failed: ') + (data.error || data.message || res.status));
+      showToast((currentLang === 'id' ? 'Reset gagal: ' : 'Reset failed: ') + (data.error || data.message || res.status));
       return;
     }
     detailsMap.delete(id);
     await loadDetails(id);
     renderMonitors();
     recalcStats();
+    showToast(data.message || (currentLang === 'id' ? 'Statistik berhasil direset.' : 'Stats reset.'), 'success');
   } catch (err) {
-    alert('Reset failed: ' + err);
+    showToast('Reset failed: ' + err);
   }
 }
 
@@ -820,12 +861,13 @@ async function handleCreateMonitor(e) {
     if (res.ok) {
       closeAddModal();
       await loadMonitors();
+      showToast(currentLang === 'id' ? 'Monitor berhasil ditambahkan.' : 'Monitor added.', 'success');
     } else {
       const err = await res.text();
-      alert('Failed to add monitor: ' + err);
+      showToast('Failed to add monitor: ' + err);
     }
   } catch (err) {
-    alert('Error: ' + err);
+    showToast('Error: ' + err);
   }
 }
 
@@ -894,12 +936,13 @@ async function handleUpdateMonitor(e) {
     if (res.ok) {
       closeEditModal();
       await loadMonitors();
+      showToast(currentLang === 'id' ? 'Monitor berhasil diperbarui.' : 'Monitor updated.', 'success');
     } else {
       const err = await res.text();
-      alert('Gagal memperbarui monitor: ' + err);
+      showToast('Gagal memperbarui monitor: ' + err);
     }
   } catch (err) {
-    alert('Error: ' + err);
+    showToast('Error: ' + err);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Update Monitor';
@@ -1175,7 +1218,7 @@ async function handleTestTelegram() {
   };
 
   if (!payload.bot_token || !payload.chat_id) {
-    alert('Harap isi Bot Token dan Chat ID terlebih dahulu.');
+    showToast(currentLang === 'id' ? 'Harap isi Bot Token dan Chat ID terlebih dahulu.' : 'Please fill in Bot Token and Chat ID first.');
     return;
   }
 
@@ -1488,7 +1531,7 @@ async function handleExportJson() {
     a.remove();
     window.URL.revokeObjectURL(url);
   } catch (err) {
-    alert('Export backup gagal: ' + err);
+    showToast('Export backup gagal: ' + err);
   }
 }
 
@@ -1507,7 +1550,7 @@ async function handleDownloadDb() {
     a.remove();
     window.URL.revokeObjectURL(url);
   } catch (err) {
-    alert('Download database gagal: ' + err);
+    showToast('Download database gagal: ' + err);
   }
 }
 
@@ -1519,7 +1562,7 @@ async function handleRestoreBackup(e) {
   const submitBtn = document.getElementById('btn-restore-submit');
 
   if (!fileInput.files || fileInput.files.length === 0) {
-    alert('Pilih file backup .json terlebih dahulu.');
+    showToast(currentLang === 'id' ? 'Pilih file backup .json terlebih dahulu.' : 'Please select a .json backup file first.');
     return;
   }
 
@@ -1527,7 +1570,10 @@ async function handleRestoreBackup(e) {
   const mode = modeSelect.value;
 
   if (mode === 'replace') {
-    if (!confirm('PERINGATAN: Mode Ganti Total (Replace) akan menghapus seluruh data monitor lama dan menggantinya dengan isi file backup ini. Lanjutkan?')) {
+    const warnMsg = currentLang === 'id'
+      ? 'PERINGATAN: Mode Ganti Total (Replace) akan menghapus seluruh data monitor lama dan menggantinya dengan isi file backup ini. Lanjutkan?'
+      : 'WARNING: Replace mode will delete all existing monitor data and replace it with this backup file. Continue?';
+    if (!(await showConfirm(warnMsg, { danger: true }))) {
       return;
     }
   }
@@ -1618,7 +1664,7 @@ async function handleManualPrune() {
   const confirmMsg = currentLang === 'id'
     ? 'Hapus seluruh log riwayat pemeriksaan yang melebihi batas retensi dan rampingkan file WAL database?'
     : 'Purge all heartbeat logs older than retention days and truncate WAL database file?';
-  if (!confirm(confirmMsg)) return;
+  if (!(await showConfirm(confirmMsg, { danger: true }))) return;
 
   const btn = document.getElementById('btn-manual-prune');
   const msg = document.getElementById('prune-status-msg');

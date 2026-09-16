@@ -798,6 +798,24 @@
     </div>
   </div>
 
+  <!-- Confirm Modal (pengganti dialog confirm() bawaan browser) -->
+  <div class="modal-overlay" id="confirm-modal" style="display: none;">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <div class="modal-title" id="confirm-title">Konfirmasi</div>
+        <button class="btn-icon" onclick="closeConfirmModal(false)">&times;</button>
+      </div>
+      <div id="confirm-message"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn" id="confirm-cancel-btn" onclick="closeConfirmModal(false)">Batal</button>
+        <button type="button" class="btn btn-primary" id="confirm-ok-btn" onclick="closeConfirmModal(true)">Ya</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container (pengganti alert() bawaan browser) -->
+  <div class="toast-container" id="toast-container"></div>
+
   <script src="/js/admin.js"></script>
 </body>
 </html>
