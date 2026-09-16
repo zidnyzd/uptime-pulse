@@ -130,11 +130,14 @@ function renderPublicView(data) {
       document.title = `${brand.site_title} - Status`;
     }
 
-    if (brand.logo_url) {
+    if (brand.logo_url && brand.logo_url.trim()) {
       const logoWrap = document.getElementById('public-brand-logo-wrap');
       if (logoWrap) {
         logoWrap.innerHTML = `<img src="${escapeHtml(brand.logo_url)}" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;">`;
       }
+      updateFavicon(brand.logo_url.trim());
+    } else {
+      updateFavicon(DEFAULT_FAVICON);
     }
 
     if (brand.site_subtitle && data.incident_services === 0 && data.total_services > 0) {
@@ -336,6 +339,32 @@ function initPublicSSE() {
       }
     };
   } catch (err) {}
+}
+
+// --- Favicon Dynamic Updater ---
+const DEFAULT_FAVICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232ea043' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 18 12 15 21 9 3 6 12 2 12'/%3E%3C/svg%3E";
+
+function updateFavicon(url) {
+  const href = (url && url.trim()) ? url.trim() : DEFAULT_FAVICON;
+  
+  // Hapus semua elemen favicon lama untuk memicu refresh favicon di tab browser
+  const existingIcons = document.querySelectorAll("link[rel*='icon']");
+  existingIcons.forEach(el => el.remove());
+
+  const newLink = document.createElement('link');
+  newLink.id = 'app-favicon';
+  newLink.rel = 'icon';
+  if (href.startsWith('data:image/svg')) {
+    newLink.type = 'image/svg+xml';
+  } else if (href.includes('.png')) {
+    newLink.type = 'image/png';
+  } else if (href.includes('.jpg') || href.includes('.jpeg')) {
+    newLink.type = 'image/jpeg';
+  } else if (href.includes('.ico')) {
+    newLink.type = 'image/x-icon';
+  }
+  newLink.href = href;
+  document.head.appendChild(newLink);
 }
 
 // --- Theme Handling (Dark / Light) ---

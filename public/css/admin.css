@@ -1059,6 +1059,62 @@
   gap: 12px;
 }
 
+/* Form Callout & Checkbox Cards */
+.form-tip-box {
+  font-size: 11px;
+  line-height: 1.45;
+  margin-top: -4px;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  color: #e2e8f0;
+}
+
+.form-tip-box strong {
+  color: #fde047;
+}
+
+[data-theme="light"] .form-tip-box {
+  background: #fefce8;
+  border-color: #fef08a;
+  color: #713f12;
+}
+
+[data-theme="light"] .form-tip-box strong {
+  color: #854d0e;
+}
+
+.form-check-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--subtle-bg);
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  margin-bottom: 16px;
+}
+
+[data-theme="light"] .form-check-card {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+}
+
+.form-check-card label {
+  margin: 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: none;
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .form-check-card label {
+  color: #090d13;
+}
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;

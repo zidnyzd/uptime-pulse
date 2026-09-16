@@ -242,6 +242,7 @@ async function checkAuth() {
       showDashboard();
       await loadMonitors();
       initSSE();
+      applyBrandingFavicon();
     } else {
       showLogin();
     }
@@ -286,6 +287,7 @@ async function handleLogin(e) {
       showDashboard();
       await loadMonitors();
       initSSE();
+      applyBrandingFavicon();
     } else {
       errBox.textContent = data.error || 'Kombinasi username atau password salah';
       errBox.style.display = 'block';
@@ -1173,6 +1175,11 @@ async function handleSaveBranding(e) {
       statusMsg.textContent = currentLang === 'id' ? 'Branding berhasil disimpan!' : 'Branding saved successfully!';
       statusMsg.style.color = 'var(--green)';
       statusMsg.style.display = 'block';
+      if (payload.logo_url && payload.logo_url.trim()) {
+        updateFavicon(payload.logo_url.trim());
+      } else {
+        updateFavicon(DEFAULT_FAVICON);
+      }
     } else {
       throw new Error(data.error || 'Failed to save branding');
     }
@@ -1507,6 +1514,46 @@ async function handleManualPrune() {
   }
 }
 
+// --- Favicon Dynamic Updater ---
+const DEFAULT_FAVICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232ea043' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 18 12 15 21 9 3 6 12 2 12'/%3E%3C/svg%3E";
+
+function updateFavicon(url) {
+  const href = (url && url.trim()) ? url.trim() : DEFAULT_FAVICON;
+  
+  // Hapus semua elemen favicon lama untuk memicu refresh favicon di tab browser
+  const existingIcons = document.querySelectorAll("link[rel*='icon']");
+  existingIcons.forEach(el => el.remove());
+
+  const newLink = document.createElement('link');
+  newLink.id = 'app-favicon';
+  newLink.rel = 'icon';
+  if (href.startsWith('data:image/svg')) {
+    newLink.type = 'image/svg+xml';
+  } else if (href.includes('.png')) {
+    newLink.type = 'image/png';
+  } else if (href.includes('.jpg') || href.includes('.jpeg')) {
+    newLink.type = 'image/jpeg';
+  } else if (href.includes('.ico')) {
+    newLink.type = 'image/x-icon';
+  }
+  newLink.href = href;
+  document.head.appendChild(newLink);
+}
+
+async function applyBrandingFavicon() {
+  try {
+    const res = await apiFetch('/api/settings/branding');
+    if (res.ok) {
+      const cfg = await res.json();
+      if (cfg.logo_url && cfg.logo_url.trim()) {
+        updateFavicon(cfg.logo_url.trim());
+      } else {
+        updateFavicon(DEFAULT_FAVICON);
+      }
+    }
+  } catch (e) {}
+}
+
 // --- Theme Handling (Dark / Light) ---
 let currentTheme = localStorage.getItem('uptime_theme') || 'dark';
 
@@ -1546,4 +1593,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   setLanguage(currentLang);
   checkAuth();
+  applyBrandingFavicon();
 });
