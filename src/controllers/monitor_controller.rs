@@ -4,6 +4,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
+use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
 use crate::database::DbPool;
@@ -167,5 +168,30 @@ pub async fn reset(
         }))),
         Ok(None) => Err((StatusCode::NOT_FOUND, "Monitor tidak ditemukan".to_string())),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct ReorderPayload {
+    pub ids: Vec<i64>,
+}
+
+// POST /api/monitors/reorder - Mengubah susunan urutan monitor secara batch
+pub async fn reorder(
+    State(state): State<Arc<MonitorControllerState>>,
+    Json(payload): Json<ReorderPayload>,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    if payload.ids.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "Daftar ID tidak boleh kosong" })),
+        ));
+    }
+    match Monitor::reorder(&state.db, &payload.ids).await {
+        Ok(_) => Ok(Json(json!({ "success": true, "message": "Urutan monitor berhasil disimpan" }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": e.to_string() })),
+        )),
     }
 }

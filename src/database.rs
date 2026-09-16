@@ -31,7 +31,8 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
              status TEXT NOT NULL DEFAULT 'pending',
              last_latency_ms REAL,
              last_check_at TEXT,
-             created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+             created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+             sort_order INTEGER NOT NULL DEFAULT 0
          );
 
          -- Tabel log riwayat probe
@@ -95,6 +96,13 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
     let has_is_public = conn.prepare("SELECT is_public FROM monitors LIMIT 1").is_ok();
     if !has_is_public {
         let _ = conn.execute("ALTER TABLE monitors ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1", []);
+    }
+
+    // Migrasi kolom urutan tampilan (sort_order) jika belum ada
+    let has_sort_order = conn.prepare("SELECT sort_order FROM monitors LIMIT 1").is_ok();
+    if !has_sort_order {
+        let _ = conn.execute("ALTER TABLE monitors ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
+        let _ = conn.execute("UPDATE monitors SET sort_order = id", []);
     }
 
     Ok(Arc::new(Mutex::new(conn)))

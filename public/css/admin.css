@@ -715,9 +715,86 @@
 .widget-title-area {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
   flex: 1;
+}
+
+/* Reorder controls (Drag & Drop + Mobile Arrows) */
+.widget-reorder-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding-top: 2px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 20px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: grab;
+  transition: all 0.15s ease;
+  opacity: 0.6;
+}
+
+.widget-card:hover .drag-handle {
+  opacity: 1;
+}
+
+.drag-handle:hover {
+  color: #f7f8f8;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.reorder-arrows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.btn-arrow {
+  width: 14px;
+  height: 9px;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.btn-arrow:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Dragging visual states */
+.widget-card.is-dragging {
+  opacity: 0.4;
+  transform: scale(0.98);
+  border: 1px dashed var(--blue) !important;
+}
+
+.widget-card.drag-over {
+  border-color: var(--blue) !important;
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.28) !important;
 }
 
 .widget-dot-wrap {
@@ -1322,6 +1399,26 @@
     gap: 8px;
   }
 
+  .widget-reorder-group {
+    gap: 3px;
+    padding-top: 0;
+  }
+
+  .drag-handle {
+    display: none;
+  }
+
+  .reorder-arrows {
+    flex-direction: row;
+    gap: 2px;
+  }
+
+  .btn-arrow {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+  }
+
   .widget-name-title {
     font-size: 13px;
   }
@@ -1773,4 +1870,21 @@
 
 #confirm-ok-btn.danger:hover {
   background: #f85149;
+}
+
+[data-theme="light"] .drag-handle:hover {
+  color: #090d13;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .btn-arrow {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+  color: #656d76;
+}
+
+[data-theme="light"] .btn-arrow:hover {
+  color: #090d13;
+  background: #eaeef2;
+  border-color: #b0b8c1;
 }

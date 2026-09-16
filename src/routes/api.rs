@@ -56,6 +56,7 @@ pub fn build_api_router(
             "/api/monitors",
             get(monitor_controller::index).post(monitor_controller::store),
         )
+        .route("/api/monitors/reorder", post(monitor_controller::reorder))
         .route(
             "/api/monitors/{id}",
             get(monitor_controller::show)

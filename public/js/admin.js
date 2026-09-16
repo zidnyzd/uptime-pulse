@@ -105,6 +105,12 @@ const i18n = {
     btn_edit: 'Edit Monitor',
     btn_delete: 'Hapus Monitor',
     btn_reset: 'Reset Statistik',
+    drag_handle_tip: 'Tarik untuk mengubah urutan (Drag & Drop)',
+    btn_move_up: 'Pindah ke Atas',
+    btn_move_down: 'Pindah ke Bawah',
+    reorder_filter_warn: 'Pembersihan filter / pencarian diperlukan sebelum mengatur urutan.',
+    reorder_success: 'Urutan monitor berhasil disimpan.',
+    reorder_failed: 'Gagal menyimpan urutan monitor: ',
 
     footer_engine: 'UptimePulse Engine • Rust Axum & SQLite WAL',
     footer_arch: 'Single Static Binary • Konkurensi via Tokio'
@@ -171,6 +177,12 @@ const i18n = {
     btn_edit: 'Edit Monitor',
     btn_delete: 'Delete Monitor',
     btn_reset: 'Reset Stats',
+    drag_handle_tip: 'Drag to reorder (Drag & Drop)',
+    btn_move_up: 'Move Up',
+    btn_move_down: 'Move Down',
+    reorder_filter_warn: 'Please clear filter / search before reordering.',
+    reorder_success: 'Monitor order saved successfully.',
+    reorder_failed: 'Failed to save monitor order: ',
 
     footer_engine: 'UptimePulse Engine • Rust Axum & SQLite WAL',
     footer_arch: 'Single Static Binary • Concurrency via Tokio'
@@ -461,6 +473,26 @@ function createMonitorWidget(m) {
   card.innerHTML = `
     <div class="widget-header">
       <div class="widget-title-area">
+        <div class="widget-reorder-group">
+          <div class="drag-handle" title="${i18n[currentLang].drag_handle_tip}">
+            <svg width="12" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="8" cy="5" r="1.5"></circle>
+              <circle cx="16" cy="5" r="1.5"></circle>
+              <circle cx="8" cy="12" r="1.5"></circle>
+              <circle cx="16" cy="12" r="1.5"></circle>
+              <circle cx="8" cy="19" r="1.5"></circle>
+              <circle cx="16" cy="19" r="1.5"></circle>
+            </svg>
+          </div>
+          <div class="reorder-arrows">
+            <button type="button" class="btn-arrow" title="${i18n[currentLang].btn_move_up}" onclick="event.stopPropagation(); moveMonitorOrder(${m.id}, -1)">
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+            </button>
+            <button type="button" class="btn-arrow" title="${i18n[currentLang].btn_move_down}" onclick="event.stopPropagation(); moveMonitorOrder(${m.id}, 1)">
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+          </div>
+        </div>
         <div class="widget-dot-wrap">
           <div class="status-dot ${statusClass}" id="dot-${m.id}" title="Status: ${m.status}"></div>
         </div>
@@ -535,7 +567,151 @@ function createMonitorWidget(m) {
       </div>
     </div>
   `;
+
+  // HTML5 Drag and Drop attributes & listeners
+  card.setAttribute('draggable', 'true');
+  card.dataset.id = String(m.id);
+  card.addEventListener('dragstart', handleCardDragStart);
+  card.addEventListener('dragover', handleCardDragOver);
+  card.addEventListener('dragleave', handleCardDragLeave);
+  card.addEventListener('drop', handleCardDrop);
+  card.addEventListener('dragend', handleCardDragEnd);
+
   return card;
+}
+
+// --- Reordering Logic (HTML5 Drag & Drop + Mobile Arrows) ---
+let draggedMonitorId = null;
+
+function handleCardDragStart(e) {
+  // Cegah drag jika pengguna mengklik tombol atau kontrol interaktif di dalam kartu
+  if (e.target.closest('button, input, select, textarea, a, .btn-icon, .btn-arrow')) {
+    e.preventDefault();
+    return;
+  }
+  // Hanya izinkan drag jika ditarik dari drag-handle (.drag-handle) agar seleksi teks tetap normal
+  if (!e.target.closest('.drag-handle')) {
+    e.preventDefault();
+    return;
+  }
+  if (currentFilter !== 'all' || (searchQuery && searchQuery.trim() !== '')) {
+    e.preventDefault();
+    showToast(i18n[currentLang].reorder_filter_warn);
+    return;
+  }
+  const id = parseInt(this.dataset.id, 10);
+  draggedMonitorId = id;
+  this.classList.add('is-dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(id));
+}
+
+function handleCardDragOver(e) {
+  e.preventDefault();
+  if (!draggedMonitorId) return;
+  e.dataTransfer.dropEffect = 'move';
+  const targetCard = this.closest('.widget-card');
+  if (targetCard && parseInt(targetCard.dataset.id, 10) !== draggedMonitorId) {
+    targetCard.classList.add('drag-over');
+  }
+}
+
+function handleCardDragLeave(e) {
+  const targetCard = this.closest('.widget-card');
+  if (targetCard) {
+    targetCard.classList.remove('drag-over');
+  }
+}
+
+async function handleCardDrop(e) {
+  e.preventDefault();
+  const targetCard = this.closest('.widget-card');
+  if (targetCard) {
+    targetCard.classList.remove('drag-over');
+  }
+  if (!draggedMonitorId) return;
+
+  const targetId = parseInt(this.dataset.id, 10);
+  const sourceId = draggedMonitorId;
+  draggedMonitorId = null;
+
+  if (sourceId === targetId) return;
+
+  const ids = Array.from(monitorsMap.keys());
+  const fromIdx = ids.indexOf(sourceId);
+  const toIdx = ids.indexOf(targetId);
+
+  if (fromIdx === -1 || toIdx === -1) return;
+
+  // Pindahkan ID ke indeks target
+  ids.splice(fromIdx, 1);
+  ids.splice(toIdx, 0, sourceId);
+
+  // Rekonstruksi monitorsMap secara optimistik
+  const newMap = new Map();
+  for (const id of ids) {
+    newMap.set(id, monitorsMap.get(id));
+  }
+  monitorsMap = newMap;
+  renderMonitors();
+
+  await saveNewMonitorOrder(ids);
+}
+
+function handleCardDragEnd(e) {
+  this.classList.remove('is-dragging');
+  document.querySelectorAll('.widget-card.drag-over').forEach(el => el.classList.remove('drag-over'));
+  draggedMonitorId = null;
+}
+
+// Action Panah Naik / Turun
+async function moveMonitorOrder(id, delta) {
+  if (currentFilter !== 'all' || (searchQuery && searchQuery.trim() !== '')) {
+    showToast(i18n[currentLang].reorder_filter_warn);
+    return;
+  }
+
+  const ids = Array.from(monitorsMap.keys());
+  const idx = ids.indexOf(id);
+  if (idx === -1) return;
+
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= ids.length) return; // Batas atas/bawah tercapai
+
+  // Tukar posisi ID
+  const temp = ids[idx];
+  ids[idx] = ids[newIdx];
+  ids[newIdx] = temp;
+
+  const newMap = new Map();
+  for (const mid of ids) {
+    newMap.set(mid, monitorsMap.get(mid));
+  }
+  monitorsMap = newMap;
+  renderMonitors();
+
+  await saveNewMonitorOrder(ids);
+}
+
+// Simpan susunan urutan baru ke API backend
+async function saveNewMonitorOrder(ids) {
+  try {
+    const res = await apiFetch('/api/monitors/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      showToast((i18n[currentLang].reorder_failed || 'Gagal: ') + (data.error || data.message || res.status));
+      await loadMonitors();
+      return;
+    }
+    showToast(i18n[currentLang].reorder_success, 'success');
+  } catch (err) {
+    showToast((i18n[currentLang].reorder_failed || 'Gagal: ') + err);
+    await loadMonitors();
+  }
 }
 
 // Memperbarui metrik kartu (latency, uptime %, dan balok sparkline)

@@ -19,6 +19,7 @@ pub struct Monitor {
     pub last_latency_ms: Option<f64>,
     pub last_check_at: Option<String>,
     pub created_at: String,
+    pub sort_order: i64,
 }
 
 // DTO untuk validasi payload input pembuatan monitor baru
@@ -61,8 +62,8 @@ impl Monitor {
     pub async fn all(db: &DbPool) -> Result<Vec<Monitor>> {
         let conn = db.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at
-             FROM monitors ORDER BY id DESC"
+            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at, sort_order
+             FROM monitors ORDER BY sort_order ASC, id ASC"
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -81,6 +82,7 @@ impl Monitor {
                 last_latency_ms: row.get(11)?,
                 last_check_at: row.get(12)?,
                 created_at: row.get(13)?,
+                sort_order: row.get(14)?,
             })
         })?;
 
@@ -95,7 +97,7 @@ impl Monitor {
     pub async fn find(db: &DbPool, id: i64) -> Result<Option<Monitor>> {
         let conn = db.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at
+            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at, sort_order
              FROM monitors WHERE id = ?1"
         )?;
 
@@ -115,6 +117,7 @@ impl Monitor {
                 last_latency_ms: row.get(11)?,
                 last_check_at: row.get(12)?,
                 created_at: row.get(13)?,
+                sort_order: row.get(14)?,
             })
         });
 
@@ -131,11 +134,25 @@ impl Monitor {
         let max_retries = input.max_retries.clamp(1, 10);
         let is_public_int = if input.is_public { 1 } else { 0 };
         conn.execute(
-            "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_public)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7)",
+            "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_public, sort_order)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM monitors))",
             params![input.name, input.monitor_type, input.target, input.interval_sec, input.timeout_sec, max_retries, is_public_int],
         )?;
         Ok(conn.last_insert_rowid())
+    }
+
+    // Memperbarui susunan urutan monitor secara batch
+    pub async fn reorder(db: &DbPool, ids: &[i64]) -> Result<()> {
+        let mut conn = db.lock().await;
+        let tx = conn.transaction()?;
+        for (index, id) in ids.iter().enumerate() {
+            tx.execute(
+                "UPDATE monitors SET sort_order = ?1 WHERE id = ?2",
+                params![index as i64, id],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
     }
 
     // Menghapus data monitor dan seluruh relasi heartbeat di SQLite
