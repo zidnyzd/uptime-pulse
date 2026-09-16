@@ -74,6 +74,11 @@ pub fn build_api_router(
             "/api/settings/telegram/test",
             post(setting_controller::test_telegram_notification),
         )
+        .route(
+            "/api/settings/branding",
+            get(setting_controller::get_branding_settings)
+                .post(setting_controller::save_branding_settings),
+        )
         .with_state(setting_controller_state)
         .route_layer(from_fn_with_state(auth_mw_state.clone(), require_admin_auth));
 

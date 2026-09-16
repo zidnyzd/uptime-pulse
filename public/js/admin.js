@@ -11,10 +11,17 @@ const i18n = {
     nav_incidents: 'Log Insiden',
     nav_settings: 'Pengaturan & Tautan',
     nav_telegram: 'Notifikasi Telegram',
+    nav_branding: 'Identitas & Branding',
     nav_backup: 'Backup & Restore',
     nav_public: 'Status Publik',
     nav_change_pwd: 'Ubah Kata Sandi',
     nav_logout: 'Keluar (Sign Out)',
+
+    modal_branding_title: 'Identitas & Branding Publik',
+    branding_site_title_label: 'Nama Situs / Judul Status',
+    branding_site_sub_label: 'Subjudul Status Normal',
+    branding_logo_label: 'URL Logo Kustom',
+    branding_footer_label: 'Teks Atribusi Footer',
 
     title_overview_desktop: 'Ringkasan Infrastruktur',
     title_overview_mobile: 'Ringkasan',
@@ -59,10 +66,17 @@ const i18n = {
     nav_incidents: 'Incidents Log',
     nav_settings: 'Settings & Links',
     nav_telegram: 'Telegram Alert',
+    nav_branding: 'Site Branding',
     nav_backup: 'Backup & Restore',
     nav_public: 'Public Status',
     nav_change_pwd: 'Change Password',
     nav_logout: 'Sign Out',
+
+    modal_branding_title: 'Site Branding & Identity',
+    branding_site_title_label: 'Site Title',
+    branding_site_sub_label: 'Normal Status Subtitle',
+    branding_logo_label: 'Custom Logo Image URL',
+    branding_footer_label: 'Custom Footer Text',
 
     title_overview_desktop: 'Infrastructure Overview',
     title_overview_mobile: 'Overview',
@@ -1037,6 +1051,98 @@ async function handleTestTelegram() {
   } finally {
     testBtn.disabled = false;
     testBtn.textContent = 'Test Message';
+  }
+}
+
+// --- Site Branding Settings ---
+async function openBrandingModal() {
+  document.getElementById('branding-modal').style.display = 'flex';
+  const statusMsg = document.getElementById('branding-status-msg');
+  if (statusMsg) statusMsg.style.display = 'none';
+
+  // Pasang live preview listener
+  const titleInput = document.getElementById('branding-title-input');
+  const logoInput = document.getElementById('branding-logo-input');
+
+  if (titleInput) titleInput.oninput = updateBrandingPreview;
+  if (logoInput) logoInput.oninput = updateBrandingPreview;
+
+  await loadBrandingSettings();
+}
+
+function closeBrandingModal() {
+  document.getElementById('branding-modal').style.display = 'none';
+}
+
+function updateBrandingPreview() {
+  const title = document.getElementById('branding-title-input').value.trim() || 'System Status';
+  const logoUrl = document.getElementById('branding-logo-input').value.trim();
+
+  const previewTitle = document.getElementById('branding-preview-title');
+  const previewLogo = document.getElementById('branding-preview-logo');
+
+  if (previewTitle) previewTitle.textContent = title;
+  if (previewLogo) {
+    if (logoUrl) {
+      previewLogo.innerHTML = `<img src="${escapeHtml(logoUrl)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;" onerror="this.parentElement.innerHTML='<svg width=\\'14\\' height=\\'14\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'var(--green)\\' stroke-width=\\'2.5\\'><polyline points=\\'22 12 18 12 15 21 9 3 6 12 2 12\\'></polyline></svg>'">`;
+    } else {
+      previewLogo.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>`;
+    }
+  }
+}
+
+async function loadBrandingSettings() {
+  try {
+    const res = await apiFetch('/api/settings/branding');
+    if (res.ok) {
+      const cfg = await res.json();
+      document.getElementById('branding-title-input').value = cfg.site_title || '';
+      document.getElementById('branding-sub-input').value = cfg.site_subtitle || '';
+      document.getElementById('branding-logo-input').value = cfg.logo_url || '';
+      document.getElementById('branding-footer-input').value = cfg.custom_footer || '';
+      updateBrandingPreview();
+    }
+  } catch (err) {
+    console.error('Failed to load branding settings:', err);
+  }
+}
+
+async function handleSaveBranding(e) {
+  e.preventDefault();
+  const payload = {
+    site_title: document.getElementById('branding-title-input').value.trim() || 'System Status',
+    site_subtitle: document.getElementById('branding-sub-input').value.trim(),
+    logo_url: document.getElementById('branding-logo-input').value.trim(),
+    custom_footer: document.getElementById('branding-footer-input').value.trim(),
+  };
+
+  const statusMsg = document.getElementById('branding-status-msg');
+  const submitBtn = document.getElementById('btn-branding-save');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saving...';
+
+  try {
+    const res = await apiFetch('/api/settings/branding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (res.ok) {
+      statusMsg.textContent = currentLang === 'id' ? 'Branding berhasil disimpan!' : 'Branding saved successfully!';
+      statusMsg.style.color = 'var(--green)';
+      statusMsg.style.display = 'block';
+      setTimeout(closeBrandingModal, 1200);
+    } else {
+      throw new Error(data.error || 'Failed to save branding');
+    }
+  } catch (err) {
+    statusMsg.textContent = 'Error: ' + err.message;
+    statusMsg.style.color = 'var(--red)';
+    statusMsg.style.display = 'block';
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Save Branding';
   }
 }
 

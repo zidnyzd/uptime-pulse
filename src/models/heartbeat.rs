@@ -71,6 +71,7 @@ pub struct PublicSystemSummary {
     pub monitors: Vec<PublicMonitorSummary>,
     pub active_incidents: Vec<crate::models::Incident>,
     pub recent_incidents: Vec<crate::models::Incident>,
+    pub branding: crate::models::BrandingSettings,
 }
 
 impl Heartbeat {
@@ -433,6 +434,9 @@ impl Heartbeat {
 
         let active_incidents = crate::models::Incident::list_ongoing(db).await?;
         let recent_incidents = crate::models::Incident::list_recent(db, 10).await?;
+        let branding = crate::models::BrandingSettings::load(db)
+            .await
+            .unwrap_or_default();
 
         Ok(PublicSystemSummary {
             overall_status,
@@ -442,6 +446,7 @@ impl Heartbeat {
             monitors: public_items,
             active_incidents,
             recent_incidents,
+            branding,
         })
     }
 }

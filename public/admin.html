@@ -68,6 +68,15 @@
             </div>
           </button>
 
+          <button class="nav-link-btn" onclick="openBrandingModal()">
+            <div class="nav-link-btn-content">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+              </svg>
+              <span data-i18n="nav_branding">Site Branding</span>
+            </div>
+          </button>
+
           <button class="nav-link-btn" onclick="openBackupModal()">
             <div class="nav-link-btn-content">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -435,6 +444,76 @@
             <button type="button" class="btn btn-sm" onclick="closeTelegramModal()">Cancel</button>
             <button type="submit" class="btn btn-primary btn-sm" id="btn-tg-save">Save Settings</button>
           </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Site Branding & Identity Modal -->
+  <div class="modal-overlay" id="branding-modal">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2">
+            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+          </svg>
+          <span data-i18n="modal_branding_title">Site Branding &amp; Identity</span>
+        </div>
+        <button class="btn-icon" onclick="closeBrandingModal()">&times;</button>
+      </div>
+
+      <form id="branding-form" onsubmit="handleSaveBranding(event)">
+        <div class="form-group">
+          <label data-i18n="branding_site_title_label">Nama Situs / Site Title</label>
+          <input type="text" class="form-control" id="branding-title-input" placeholder="e.g. ZidStore Network Status" required>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Tampil di header halaman publik, tab browser, dan meta deskripsi</div>
+        </div>
+
+        <div class="form-group">
+          <label style="display: flex; justify-content: space-between;">
+            <span data-i18n="branding_site_sub_label">Subjudul Status Hero</span>
+            <span style="color: var(--blue); font-size: 10px;">Opsional</span>
+          </label>
+          <input type="text" class="form-control" id="branding-sub-input" placeholder="e.g. All monitored network targets and infrastructure are running normally.">
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Keterangan di bawah banner status saat semua sistem berjalan normal</div>
+        </div>
+
+        <div class="form-group">
+          <label style="display: flex; justify-content: space-between;">
+            <span data-i18n="branding_logo_label">URL Logo Kustom</span>
+            <span style="color: var(--blue); font-size: 10px;">Opsional</span>
+          </label>
+          <input type="url" class="form-control" id="branding-logo-input" placeholder="https://domain.com/logo.png (atau kosongkan untuk default pulse)">
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Mengganti ikon pulse bawaan dengan logo instansi/projek Anda</div>
+        </div>
+
+        <div class="form-group">
+          <label style="display: flex; justify-content: space-between;">
+            <span data-i18n="branding_footer_label">Teks / Atribusi Kustom Footer</span>
+            <span style="color: var(--blue); font-size: 10px;">Opsional</span>
+          </label>
+          <input type="text" class="form-control" id="branding-footer-input" placeholder="e.g. Powered by UptimePulse • ZidStore Homelab">
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Keterangan tambahan di sudut kanan bawah halaman publik</div>
+        </div>
+
+        <!-- Live Preview Inset Box -->
+        <div style="margin-bottom: 16px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 12px;">
+          <div style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+            Preview Header Publik
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div id="branding-preview-logo" style="width: 28px; height: 28px; border-radius: 6px; background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); display: flex; align-items: center; justify-content: center; overflow: hidden;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            </div>
+            <span id="branding-preview-title" style="font-size: 14px; font-weight: 600; color: #f7f8f8;">System Status</span>
+          </div>
+        </div>
+
+        <div id="branding-status-msg" style="font-size: 12px; margin-bottom: 12px; display: none;"></div>
+
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn btn-sm" onclick="closeBrandingModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-branding-save">Save Branding</button>
         </div>
       </form>
     </div>

@@ -182,3 +182,71 @@ fn format_duration(sec: i64) -> String {
         format!("{}h {}m", sec / 3600, (sec % 3600) / 60)
     }
 }
+
+// Model konfigurasi identitas branding halaman publik
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrandingSettings {
+    pub site_title: String,
+    pub site_subtitle: String,
+    pub logo_url: String,
+    pub custom_footer: String,
+}
+
+impl Default for BrandingSettings {
+    fn default() -> Self {
+        Self {
+            site_title: "System Status".to_string(),
+            site_subtitle: String::new(),
+            logo_url: String::new(),
+            custom_footer: String::new(),
+        }
+    }
+}
+
+impl BrandingSettings {
+    pub async fn load(db: &DbPool) -> Result<Self> {
+        let conn = db.lock().await;
+        let get_val = |key: &str| -> Option<String> {
+            conn.query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                params![key],
+                |r| r.get(0),
+            )
+            .optional()
+            .unwrap_or(None)
+        };
+
+        let site_title = get_val("branding_site_title")
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "System Status".to_string());
+        let site_subtitle = get_val("branding_site_subtitle").unwrap_or_default();
+        let logo_url = get_val("branding_logo_url").unwrap_or_default();
+        let custom_footer = get_val("branding_custom_footer").unwrap_or_default();
+
+        Ok(Self {
+            site_title,
+            site_subtitle,
+            logo_url,
+            custom_footer,
+        })
+    }
+
+    pub async fn save(&self, db: &DbPool) -> Result<()> {
+        let conn = db.lock().await;
+        let pairs = [
+            ("branding_site_title", self.site_title.as_str()),
+            ("branding_site_subtitle", self.site_subtitle.as_str()),
+            ("branding_logo_url", self.logo_url.as_str()),
+            ("branding_custom_footer", self.custom_footer.as_str()),
+        ];
+
+        for (k, v) in pairs {
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![k, v],
+            )?;
+        }
+        Ok(())
+    }
+}

@@ -121,6 +121,32 @@ function renderPublicView(data) {
     `;
   }
 
+  // Handle Dynamic Site Branding dari Database
+  if (data.branding) {
+    const brand = data.branding;
+    if (brand.site_title) {
+      const brandTitleEl = document.getElementById('public-brand-title');
+      if (brandTitleEl) brandTitleEl.textContent = brand.site_title;
+      document.title = `${brand.site_title} - Status`;
+    }
+
+    if (brand.logo_url) {
+      const logoWrap = document.getElementById('public-brand-logo-wrap');
+      if (logoWrap) {
+        logoWrap.innerHTML = `<img src="${escapeHtml(brand.logo_url)}" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;">`;
+      }
+    }
+
+    if (brand.site_subtitle && data.incident_services === 0 && data.total_services > 0) {
+      heroSubtitle.textContent = brand.site_subtitle;
+    }
+
+    if (brand.custom_footer) {
+      const footerEl = document.getElementById('public-footer-text');
+      if (footerEl) footerEl.textContent = brand.custom_footer;
+    }
+  }
+
   // Ringkasan Angka Metrik (2 Kolom: Uptime & Layanan Operasional)
   document.getElementById('operational-count').textContent = `${data.operational_services} / ${data.total_services}`;
 

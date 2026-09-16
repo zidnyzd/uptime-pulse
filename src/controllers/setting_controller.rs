@@ -3,7 +3,7 @@ use serde_json::json;
 use std::sync::Arc;
 
 use crate::database::DbPool;
-use crate::models::TelegramSettings;
+use crate::models::{BrandingSettings, TelegramSettings};
 
 pub struct SettingControllerState {
     pub db: DbPool,
@@ -46,5 +46,26 @@ pub async fn test_telegram_notification(
     match payload.send_message(&test_msg).await {
         Ok(_) => Ok(Json(json!({ "success": true, "message": "Pesan tes berhasil dikirim ke Telegram!" }))),
         Err(err) => Err((StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": err })))),
+    }
+}
+
+// GET /api/settings/branding - Membaca konfigurasi branding halaman publik
+pub async fn get_branding_settings(
+    State(state): State<Arc<SettingControllerState>>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    match BrandingSettings::load(&state.db).await {
+        Ok(cfg) => Ok(Json(cfg)),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+    }
+}
+
+// POST /api/settings/branding - Menyimpan konfigurasi branding halaman publik
+pub async fn save_branding_settings(
+    State(state): State<Arc<SettingControllerState>>,
+    Json(payload): Json<BrandingSettings>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    match payload.save(&state.db).await {
+        Ok(_) => Ok(Json(json!({ "success": true, "message": "Pengaturan branding berhasil disimpan" }))),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
     }
 }
