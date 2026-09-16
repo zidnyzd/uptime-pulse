@@ -130,6 +130,7 @@ function renderPublicView(data) {
     const brand = data.branding;
     if (brand.timezone) publicTimezone = brand.timezone;
     if (brand.time_format) publicTimeFormat = brand.time_format;
+    if (brand.date_format) publicDateFormat = brand.date_format;
 
     if (brand.site_title) {
       const brandTitleEl = document.getElementById('public-brand-title');
@@ -319,6 +320,7 @@ function formatDuration(sec) {
 
 let publicTimezone = 'Asia/Jakarta';
 let publicTimeFormat = '24h';
+let publicDateFormat = 'DD-MM-YYYY';
 
 function getTimezoneAbbr(tz) {
   const map = {
@@ -346,14 +348,56 @@ function getTimezoneAbbr(tz) {
   return tz;
 }
 
+function formatCustomDate(dateInput, tz = 'Asia/Jakarta', timeFormat = '24h', dateFormat = 'DD-MM-YYYY') {
+  if (!dateInput) return '';
+
+  const str = String(dateInput).trim();
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!m) {
+    const abbr = getTimezoneAbbr(tz);
+    return `${dateInput} ${abbr}`;
+  }
+
+  let year = m[1];
+  let month = m[2];
+  let day = m[3];
+  let hour = m[4] || '00';
+  let min = m[5] || '00';
+  let sec = m[6] || '00';
+
+  // Format tanggal sesuai pilihan (seperti TT-BB-TTTT)
+  let datePart = `${day}-${month}-${year}`;
+  if (dateFormat === 'YYYY-MM-DD') {
+    datePart = `${year}-${month}-${day}`;
+  } else if (dateFormat === 'DD/MM/YYYY') {
+    datePart = `${day}/${month}/${year}`;
+  } else if (dateFormat === 'MM/DD/YYYY') {
+    datePart = `${month}/${day}/${year}`;
+  } else if (dateFormat === 'DD MMM YYYY') {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const mIdx = parseInt(month, 10) - 1;
+    const mName = months[mIdx] || month;
+    datePart = `${day} ${mName} ${year}`;
+  }
+
+  // Format jam sesuai 24h atau 12h
+  let timePart = `${hour}:${min}:${sec}`;
+  if (timeFormat === '12h') {
+    let hNum = parseInt(hour, 10);
+    const period = hNum >= 12 ? 'PM' : 'AM';
+    hNum = hNum % 12;
+    if (hNum === 0) hNum = 12;
+    const hStr = hNum < 10 ? `0${hNum}` : `${hNum}`;
+    timePart = `${hStr}:${min}:${sec} ${period}`;
+  }
+
+  const abbr = getTimezoneAbbr(tz);
+  return `${datePart} ${timePart} ${abbr}`;
+}
+
 function formatTimeWithTz(dateStr) {
   if (!dateStr) return '';
-  const tz = publicTimezone || 'Asia/Jakarta';
-  const abbr = getTimezoneAbbr(tz);
-  if (dateStr.endsWith('WIB') || dateStr.endsWith('WITA') || dateStr.endsWith('WIT') || dateStr.includes('GMT') || dateStr.endsWith('UTC')) {
-    return dateStr;
-  }
-  return `${dateStr} ${abbr}`;
+  return formatCustomDate(dateStr, publicTimezone, publicTimeFormat, publicDateFormat);
 }
 
 function escapeHtml(str) {

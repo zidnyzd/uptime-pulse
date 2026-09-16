@@ -194,6 +194,8 @@ pub struct BrandingSettings {
     pub timezone: String,
     #[serde(default = "default_time_format")]
     pub time_format: String,
+    #[serde(default = "default_date_format")]
+    pub date_format: String,
 }
 
 fn default_timezone() -> String {
@@ -202,6 +204,10 @@ fn default_timezone() -> String {
 
 fn default_time_format() -> String {
     "24h".to_string()
+}
+
+fn default_date_format() -> String {
+    "DD-MM-YYYY".to_string()
 }
 
 impl Default for BrandingSettings {
@@ -213,6 +219,7 @@ impl Default for BrandingSettings {
             custom_footer: String::new(),
             timezone: default_timezone(),
             time_format: default_time_format(),
+            date_format: default_date_format(),
         }
     }
 }
@@ -242,6 +249,9 @@ impl BrandingSettings {
         let time_format = get_val("branding_time_format")
             .filter(|s| !s.trim().is_empty())
             .unwrap_or_else(|| "24h".to_string());
+        let date_format = get_val("branding_date_format")
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "DD-MM-YYYY".to_string());
 
         Ok(Self {
             site_title,
@@ -250,6 +260,7 @@ impl BrandingSettings {
             custom_footer,
             timezone,
             time_format,
+            date_format,
         })
     }
 
@@ -262,6 +273,7 @@ impl BrandingSettings {
             ("branding_custom_footer", self.custom_footer.as_str()),
             ("branding_timezone", self.timezone.as_str()),
             ("branding_time_format", self.time_format.as_str()),
+            ("branding_date_format", self.date_format.as_str()),
         ];
 
         for (k, v) in pairs {

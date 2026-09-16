@@ -980,6 +980,7 @@ document.addEventListener('click', (e) => {
 
 let configuredTimezone = 'Asia/Jakarta';
 let configuredTimeFormat = '24h';
+let configuredDateFormat = 'DD-MM-YYYY';
 
 function getTimezoneAbbr(tz) {
   const map = {
@@ -1007,14 +1008,56 @@ function getTimezoneAbbr(tz) {
   return tz;
 }
 
+function formatCustomDate(dateInput, tz = 'Asia/Jakarta', timeFormat = '24h', dateFormat = 'DD-MM-YYYY') {
+  if (!dateInput) return '';
+
+  const str = String(dateInput).trim();
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!m) {
+    const abbr = getTimezoneAbbr(tz);
+    return `${dateInput} ${abbr}`;
+  }
+
+  let year = m[1];
+  let month = m[2];
+  let day = m[3];
+  let hour = m[4] || '00';
+  let min = m[5] || '00';
+  let sec = m[6] || '00';
+
+  // Format tanggal sesuai pilihan user (seperti TT-BB-TTTT)
+  let datePart = `${day}-${month}-${year}`;
+  if (dateFormat === 'YYYY-MM-DD') {
+    datePart = `${year}-${month}-${day}`;
+  } else if (dateFormat === 'DD/MM/YYYY') {
+    datePart = `${day}/${month}/${year}`;
+  } else if (dateFormat === 'MM/DD/YYYY') {
+    datePart = `${month}/${day}/${year}`;
+  } else if (dateFormat === 'DD MMM YYYY') {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const mIdx = parseInt(month, 10) - 1;
+    const mName = months[mIdx] || month;
+    datePart = `${day} ${mName} ${year}`;
+  }
+
+  // Format jam sesuai 24h atau 12h
+  let timePart = `${hour}:${min}:${sec}`;
+  if (timeFormat === '12h') {
+    let hNum = parseInt(hour, 10);
+    const period = hNum >= 12 ? 'PM' : 'AM';
+    hNum = hNum % 12;
+    if (hNum === 0) hNum = 12;
+    const hStr = hNum < 10 ? `0${hNum}` : `${hNum}`;
+    timePart = `${hStr}:${min}:${sec} ${period}`;
+  }
+
+  const abbr = getTimezoneAbbr(tz);
+  return `${datePart} ${timePart} ${abbr}`;
+}
+
 function formatTimeWithTz(dateStr) {
   if (!dateStr) return '';
-  const tz = configuredTimezone || 'Asia/Jakarta';
-  const abbr = getTimezoneAbbr(tz);
-  if (dateStr.endsWith('WIB') || dateStr.endsWith('WITA') || dateStr.endsWith('WIT') || dateStr.includes('GMT') || dateStr.endsWith('UTC')) {
-    return dateStr;
-  }
-  return `${dateStr} ${abbr}`;
+  return formatCustomDate(dateStr, configuredTimezone, configuredTimeFormat, configuredDateFormat);
 }
 
 function escapeHtml(str) {
@@ -1187,11 +1230,15 @@ async function loadBrandingSettings() {
       if (document.getElementById('branding-tz-select')) {
         document.getElementById('branding-tz-select').value = cfg.timezone || 'Asia/Jakarta';
       }
+      if (document.getElementById('branding-date-format-select')) {
+        document.getElementById('branding-date-format-select').value = cfg.date_format || 'DD-MM-YYYY';
+      }
       if (document.getElementById('branding-format-select')) {
         document.getElementById('branding-format-select').value = cfg.time_format || '24h';
       }
       configuredTimezone = cfg.timezone || 'Asia/Jakarta';
       configuredTimeFormat = cfg.time_format || '24h';
+      configuredDateFormat = cfg.date_format || 'DD-MM-YYYY';
       updateBrandingPreview();
     }
   } catch (err) {
@@ -1208,6 +1255,7 @@ async function handleSaveBranding(e) {
     custom_footer: document.getElementById('branding-footer-input').value.trim(),
     timezone: document.getElementById('branding-tz-select') ? document.getElementById('branding-tz-select').value : 'Asia/Jakarta',
     time_format: document.getElementById('branding-format-select') ? document.getElementById('branding-format-select').value : '24h',
+    date_format: document.getElementById('branding-date-format-select') ? document.getElementById('branding-date-format-select').value : 'DD-MM-YYYY',
   };
 
   const statusMsg = document.getElementById('branding-status-msg');
@@ -1228,6 +1276,7 @@ async function handleSaveBranding(e) {
       statusMsg.style.display = 'block';
       configuredTimezone = payload.timezone;
       configuredTimeFormat = payload.time_format;
+      configuredDateFormat = payload.date_format;
       updateAdminLastFetched();
       if (payload.logo_url && payload.logo_url.trim()) {
         updateFavicon(payload.logo_url.trim());
