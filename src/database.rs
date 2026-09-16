@@ -7,6 +7,13 @@ pub type DbPool = Arc<Mutex<Connection>>;
 
 // Inisialisasi koneksi SQLite, pengaturan WAL mode, dan pembuatan schema tabel
 pub fn init_db(db_path: &str) -> Result<DbPool> {
+    // Pastikan direktori folder database dibuat jika belum ada (misal /data saat mount volume container)
+    if let Some(parent) = std::path::Path::new(db_path).parent() {
+        if !parent.as_os_str().is_empty() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+    }
+
     let conn = Connection::open(db_path)?;
 
     // Pengaturan pragma performa & konkurensi SQLite

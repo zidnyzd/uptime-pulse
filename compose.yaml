@@ -1,0 +1,20 @@
+services:
+  uptime-pulse:
+    image: ghcr.io/zidnyzd/uptime-pulse:latest
+    container_name: uptime-pulse
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - UPTIME_HOST=0.0.0.0
+      - UPTIME_PORT=3001
+      - UPTIME_DB_PATH=/data/uptime.db
+      - UPTIME_RETENTION_DAYS=90
+      # - ADMIN_PASSWORD=admin # Ganti untuk deploy pertama jika ingin override password default
+    volumes:
+      - uptime-data:/data
+    cap_add:
+      - NET_RAW # Diperlukan untuk ICMP ping socket non-root
+
+volumes:
+  uptime-data:
