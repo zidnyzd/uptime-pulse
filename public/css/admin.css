@@ -40,7 +40,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: rgba(14, 18, 24, 0.95);
+  background: rgba(31, 31, 31, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid var(--card-border);
@@ -245,7 +245,7 @@
   bottom: calc(100% + 8px);
   left: 0;
   right: 0;
-  background: #141821;
+  background: #2b2b2b;
   border: 1px solid var(--card-border);
   border-radius: 10px;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
@@ -343,7 +343,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(9, 13, 19, 0.85);
+  background: rgba(31, 31, 31, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--card-border);
@@ -461,7 +461,7 @@
 .bottom-bar {
   padding: 14px 32px;
   border-top: 1px solid var(--card-border);
-  background: rgba(9, 13, 19, 0.6);
+  background: rgba(31, 31, 31, 0.6);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -660,7 +660,7 @@
 
 .widget-card:hover {
   border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(25, 32, 44, 0.85);
+  background: rgba(46, 46, 46, 0.9);
   transform: translateY(-2px);
 }
 

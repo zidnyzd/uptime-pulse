@@ -1,11 +1,11 @@
 :root {
-  --bg: #090d13;
-  --card-bg: rgba(18, 24, 33, 0.75);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --card-hover: rgba(255, 255, 255, 0.12);
-  --text: #f0f6fc;
-  --text-primary: #f7f8f8;
-  --text-muted: #8b949e;
+  --bg: #202020;
+  --card-bg: rgba(40, 40, 40, 0.85);
+  --card-border: rgba(255, 255, 255, 0.09);
+  --card-hover: rgba(255, 255, 255, 0.14);
+  --text: #ececec;
+  --text-primary: #f5f5f5;
+  --text-muted: #a3a3a3;
   
   --green: #2ea043;
   --green-glow: rgba(46, 160, 67, 0.3);
@@ -19,17 +19,17 @@
   --yellow: #eab308;
   --blue: #58a6ff;
   --purple: #bc8cff;
-  --input-bg: #0d1117;
-  --input-border: #30363d;
+  --input-bg: #242424;
+  --input-border: #3f3f3f;
   --radius: 14px;
 
-  --btn-bg: #21262d;
-  --btn-hover: #30363d;
+  --btn-bg: #2d2d2d;
+  --btn-hover: #3a3a3a;
   --subtle-bg: rgba(255, 255, 255, 0.02);
-  --divider: rgba(255, 255, 255, 0.05);
-  --modal-bg: #161b22;
-  --modal-border: #30363d;
-  --bar-empty: rgba(255, 255, 255, 0.07);
+  --divider: rgba(255, 255, 255, 0.06);
+  --modal-bg: #282828;
+  --modal-border: #3f3f3f;
+  --bar-empty: rgba(255, 255, 255, 0.08);
 }
 
 [data-theme="light"] {
