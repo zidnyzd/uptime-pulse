@@ -33,8 +33,9 @@ pub async fn save_telegram_settings(
 // POST /api/settings/telegram/test - Menguji pengiriman pesan ke bot & topik thread
 pub async fn test_telegram_notification(
     State(_state): State<Arc<SettingControllerState>>,
-    Json(payload): Json<TelegramSettings>,
+    Json(mut payload): Json<TelegramSettings>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    payload.enabled = true;
     let thread_info = payload.thread_id.map(|t| format!(" • Topic #{}", t)).unwrap_or_default();
     let test_msg = format!(
         "🔔 <b>[TEST] UptimePulse Telegram Alert</b>{}\n\n\
