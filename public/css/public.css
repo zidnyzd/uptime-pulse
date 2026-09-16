@@ -8,7 +8,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 36px;
+  margin-bottom: 24px;
   gap: 16px;
 }
 
@@ -95,7 +95,7 @@
   border-radius: 14px;
   background: linear-gradient(90deg, rgba(34, 197, 94, 0.08) 0%, rgba(34, 197, 94, 0.01) 100%);
   border: 1px solid rgba(34, 197, 94, 0.2);
-  margin-bottom: 28px;
+  margin-bottom: 20px;
   transition: all 0.3s ease;
 }
 
@@ -183,7 +183,7 @@
   -webkit-backdrop-filter: blur(16px);
   border-radius: 12px;
   padding: 16px 20px;
-  margin-bottom: 34px;
+  margin-bottom: 22px;
 }
 
 .metric-col {
@@ -221,7 +221,7 @@
    Section Headers
    ============================================================ */
 .public-section {
-  margin-bottom: 32px;
+  margin-bottom: 22px;
 }
 
 .section-header {
@@ -548,11 +548,38 @@
 
 /* Minimal Footer */
 .public-footer {
-  text-align: center;
-  margin-top: 48px;
-  padding-top: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 28px;
+  padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  gap: 12px;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.footer-dot-live {
+  width: 6px;
+  height: 6px;
+  min-width: 6px;
+  min-height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green-glow);
+}
+
+.footer-right {
+  font-size: 11px;
   color: var(--text-muted);
 }
 
@@ -617,5 +644,12 @@
 
   .strip-bar {
     height: 16px;
+  }
+
+  .public-footer {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+    padding-top: 16px;
   }
 }

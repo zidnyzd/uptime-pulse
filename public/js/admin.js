@@ -140,6 +140,7 @@ function setLanguage(lang) {
   // Re-render monitors to apply translated labels & tooltips
   renderMonitors();
   recalcStats();
+  updateAdminLastFetched();
 }
 
 function updateViewTitles() {
@@ -267,8 +268,19 @@ async function loadMonitors() {
     }
     renderMonitors();
     recalcStats();
+    updateAdminLastFetched();
   } catch (err) {
     console.error('Failed to load monitors:', err);
+  }
+}
+
+function updateAdminLastFetched() {
+  const el = document.getElementById('admin-last-fetched-text');
+  if (el) {
+    const now = new Date();
+    const timeStr = now.toTimeString().split(' ')[0];
+    const label = currentLang === 'id' ? 'Data terakhir diambil' : 'Last fetched';
+    el.textContent = `${label}: ${timeStr}`;
   }
 }
 
@@ -613,6 +625,7 @@ function initSSE() {
           }
 
           recalcStats();
+          updateAdminLastFetched();
         }
       } catch (err) {}
     };

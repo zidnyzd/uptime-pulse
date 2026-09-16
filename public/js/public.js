@@ -121,20 +121,15 @@ function renderPublicView(data) {
     `;
   }
 
-  // Ringkasan Angka Metrik (Unified Strip)
+  // Ringkasan Angka Metrik (2 Kolom: Uptime & Layanan Operasional)
   document.getElementById('operational-count').textContent = `${data.operational_services} / ${data.total_services}`;
 
   if (data.monitors.length > 0) {
     const totalUptime = data.monitors.reduce((acc, m) => acc + m.uptime_24h, 0);
     const avgUptime = (totalUptime / data.monitors.length).toFixed(2);
     document.getElementById('overall-uptime').textContent = `${avgUptime}%`;
-
-    const totalLat = data.monitors.reduce((acc, m) => acc + m.avg_latency_ms, 0);
-    const avgLat = (totalLat / data.monitors.length).toFixed(1);
-    document.getElementById('avg-latency').textContent = `${avgLat} ms`;
   } else {
     document.getElementById('overall-uptime').textContent = '100.0%';
-    document.getElementById('avg-latency').textContent = '-- ms';
   }
 
   // Daftar Layanan (Unified Grouped Container)
@@ -259,6 +254,15 @@ function renderPublicView(data) {
         <span>${t.no_incidents}</span>
       </div>
     `;
+  }
+
+  // Update timestamp di footer / bottom bar
+  const now = new Date();
+  const timeStr = now.toTimeString().split(' ')[0];
+  const updatedEl = document.getElementById('public-last-updated');
+  if (updatedEl) {
+    const label = currentPublicLang === 'id' ? 'Data terakhir diambil' : 'Last updated';
+    updatedEl.textContent = `${label}: ${timeStr}`;
   }
 }
 
