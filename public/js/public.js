@@ -125,9 +125,12 @@ function renderPublicView(data) {
     `;
   }
 
-  // Handle Dynamic Site Branding dari Database
+  // Handle Dynamic Site Branding & Timezone dari Database
   if (data.branding) {
     const brand = data.branding;
+    if (brand.timezone) publicTimezone = brand.timezone;
+    if (brand.time_format) publicTimeFormat = brand.time_format;
+
     if (brand.site_title) {
       const brandTitleEl = document.getElementById('public-brand-title');
       if (brandTitleEl) brandTitleEl.textContent = brand.site_title;
@@ -239,13 +242,14 @@ function renderPublicView(data) {
     for (const inc of data.active_incidents) {
       const card = document.createElement('div');
       card.className = 'active-incident-card';
+      const startedLabel = currentPublicLang === 'id' ? 'Mulai:' : 'Started:';
       card.innerHTML = `
         <div class="incident-top">
           <div class="incident-service-badge">
             <span class="incident-badge-pill">ONGOING OUTAGE</span>
             <span>${escapeHtml(inc.service_name)}</span>
           </div>
-          <div class="incident-start-time">Started: ${escapeHtml(inc.started_at)}</div>
+          <div class="incident-start-time">${startedLabel} ${escapeHtml(formatTimeWithTz(inc.started_at))}</div>
         </div>
         <div class="incident-error-detail">
           ${escapeHtml(inc.error_message || 'Connection failed / Target unresponsive')}
@@ -273,7 +277,7 @@ function renderPublicView(data) {
       item.innerHTML = `
         <div class="incident-feed-top">
           <span class="incident-feed-name">${escapeHtml(inc.service_name)}</span>
-          <span class="incident-feed-time">${escapeHtml(inc.started_at)} • <strong style="color: var(--green);">${durationStr}</strong></span>
+          <span class="incident-feed-time">${escapeHtml(formatTimeWithTz(inc.started_at))} • <strong style="color: var(--green);">${durationStr}</strong></span>
         </div>
         <div class="incident-feed-err">
           ${escapeHtml(inc.error_message || 'Connection Error')}
@@ -298,7 +302,9 @@ function renderPublicView(data) {
   const updatedEl = document.getElementById('public-last-updated');
   if (updatedEl) {
     const label = currentPublicLang === 'id' ? 'Data terakhir diambil' : 'Last updated';
-    updatedEl.textContent = `${label}: ${timeStr}`;
+    const tz = publicTimezone || 'Asia/Jakarta';
+    const abbr = getTimezoneAbbr(tz);
+    updatedEl.textContent = `${label}: ${timeStr} ${abbr}`;
   }
 }
 
@@ -309,6 +315,45 @@ function formatDuration(sec) {
   if (m < 60) return `${m}m ${s}s`;
   const h = Math.floor(m / 60);
   return `${h}h ${m % 60}m`;
+}
+
+let publicTimezone = 'Asia/Jakarta';
+let publicTimeFormat = '24h';
+
+function getTimezoneAbbr(tz) {
+  const map = {
+    'Asia/Jakarta': 'WIB',
+    'Asia/Makassar': 'WITA',
+    'Asia/Jayapura': 'WIT',
+    'Asia/Singapore': 'SGT',
+    'UTC': 'UTC',
+    'Europe/London': 'GMT',
+    'Europe/Berlin': 'CET',
+    'America/New_York': 'EST',
+    'America/Los_Angeles': 'PST',
+    'Asia/Tokyo': 'JST',
+    'Australia/Sydney': 'AEST',
+  };
+  if (map[tz]) return map[tz];
+
+  try {
+    const parts = new Intl.DateTimeFormat('id-ID', { timeZone: tz, timeZoneName: 'short' })
+      .formatToParts(new Date());
+    const found = parts.find(p => p.type === 'timeZoneName')?.value;
+    if (found) return found;
+  } catch (e) {}
+
+  return tz;
+}
+
+function formatTimeWithTz(dateStr) {
+  if (!dateStr) return '';
+  const tz = publicTimezone || 'Asia/Jakarta';
+  const abbr = getTimezoneAbbr(tz);
+  if (dateStr.endsWith('WIB') || dateStr.endsWith('WITA') || dateStr.endsWith('WIT') || dateStr.includes('GMT') || dateStr.endsWith('UTC')) {
+    return dateStr;
+  }
+  return `${dateStr} ${abbr}`;
 }
 
 function escapeHtml(str) {

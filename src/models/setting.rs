@@ -118,7 +118,7 @@ impl TelegramSettings {
                     "🔴 <b>[DOWN] Service Incident Detected</b>{}\n\n\
                      <b>Service:</b> {}\n\
                      <b>Target:</b> <code>{}</code>\n\
-                     <b>Time:</b> {}\n\
+                     <b>Time:</b> {} WIB\n\
                      <b>Error:</b> <code>{}</code>",
                     topic_info,
                     html_escape(service_name),
@@ -151,7 +151,7 @@ impl TelegramSettings {
                      <b>Service:</b> {}\n\
                      <b>Target:</b> <code>{}</code>\n\
                      <b>Downtime:</b> <b>{}</b>\n\
-                     <b>Restored At:</b> {}",
+                     <b>Restored At:</b> {} WIB",
                     topic_info,
                     html_escape(service_name),
                     html_escape(target),
@@ -183,13 +183,25 @@ fn format_duration(sec: i64) -> String {
     }
 }
 
-// Model konfigurasi identitas branding halaman publik
+// Model konfigurasi identitas branding & lokalisasi waktu halaman publik
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrandingSettings {
     pub site_title: String,
     pub site_subtitle: String,
     pub logo_url: String,
     pub custom_footer: String,
+    #[serde(default = "default_timezone")]
+    pub timezone: String,
+    #[serde(default = "default_time_format")]
+    pub time_format: String,
+}
+
+fn default_timezone() -> String {
+    "Asia/Jakarta".to_string()
+}
+
+fn default_time_format() -> String {
+    "24h".to_string()
 }
 
 impl Default for BrandingSettings {
@@ -199,6 +211,8 @@ impl Default for BrandingSettings {
             site_subtitle: String::new(),
             logo_url: String::new(),
             custom_footer: String::new(),
+            timezone: default_timezone(),
+            time_format: default_time_format(),
         }
     }
 }
@@ -222,12 +236,20 @@ impl BrandingSettings {
         let site_subtitle = get_val("branding_site_subtitle").unwrap_or_default();
         let logo_url = get_val("branding_logo_url").unwrap_or_default();
         let custom_footer = get_val("branding_custom_footer").unwrap_or_default();
+        let timezone = get_val("branding_timezone")
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "Asia/Jakarta".to_string());
+        let time_format = get_val("branding_time_format")
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "24h".to_string());
 
         Ok(Self {
             site_title,
             site_subtitle,
             logo_url,
             custom_footer,
+            timezone,
+            time_format,
         })
     }
 
@@ -238,6 +260,8 @@ impl BrandingSettings {
             ("branding_site_subtitle", self.site_subtitle.as_str()),
             ("branding_logo_url", self.logo_url.as_str()),
             ("branding_custom_footer", self.custom_footer.as_str()),
+            ("branding_timezone", self.timezone.as_str()),
+            ("branding_time_format", self.time_format.as_str()),
         ];
 
         for (k, v) in pairs {

@@ -333,8 +333,10 @@ function updateAdminLastFetched() {
   if (el) {
     const now = new Date();
     const timeStr = now.toTimeString().split(' ')[0];
+    const tz = configuredTimezone || 'Asia/Jakarta';
+    const abbr = getTimezoneAbbr(tz);
     const label = currentLang === 'id' ? 'Data terakhir diambil' : 'Last fetched';
-    el.textContent = `${label}: ${timeStr}`;
+    el.textContent = `${label}: ${timeStr} ${abbr}`;
   }
 }
 
@@ -976,6 +978,45 @@ document.addEventListener('click', (e) => {
   }
 });
 
+let configuredTimezone = 'Asia/Jakarta';
+let configuredTimeFormat = '24h';
+
+function getTimezoneAbbr(tz) {
+  const map = {
+    'Asia/Jakarta': 'WIB',
+    'Asia/Makassar': 'WITA',
+    'Asia/Jayapura': 'WIT',
+    'Asia/Singapore': 'SGT',
+    'UTC': 'UTC',
+    'Europe/London': 'GMT',
+    'Europe/Berlin': 'CET',
+    'America/New_York': 'EST',
+    'America/Los_Angeles': 'PST',
+    'Asia/Tokyo': 'JST',
+    'Australia/Sydney': 'AEST',
+  };
+  if (map[tz]) return map[tz];
+
+  try {
+    const parts = new Intl.DateTimeFormat('id-ID', { timeZone: tz, timeZoneName: 'short' })
+      .formatToParts(new Date());
+    const found = parts.find(p => p.type === 'timeZoneName')?.value;
+    if (found) return found;
+  } catch (e) {}
+
+  return tz;
+}
+
+function formatTimeWithTz(dateStr) {
+  if (!dateStr) return '';
+  const tz = configuredTimezone || 'Asia/Jakarta';
+  const abbr = getTimezoneAbbr(tz);
+  if (dateStr.endsWith('WIB') || dateStr.endsWith('WITA') || dateStr.endsWith('WIT') || dateStr.includes('GMT') || dateStr.endsWith('UTC')) {
+    return dateStr;
+  }
+  return `${dateStr} ${abbr}`;
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -1143,6 +1184,14 @@ async function loadBrandingSettings() {
       document.getElementById('branding-sub-input').value = cfg.site_subtitle || '';
       document.getElementById('branding-logo-input').value = cfg.logo_url || '';
       document.getElementById('branding-footer-input').value = cfg.custom_footer || '';
+      if (document.getElementById('branding-tz-select')) {
+        document.getElementById('branding-tz-select').value = cfg.timezone || 'Asia/Jakarta';
+      }
+      if (document.getElementById('branding-format-select')) {
+        document.getElementById('branding-format-select').value = cfg.time_format || '24h';
+      }
+      configuredTimezone = cfg.timezone || 'Asia/Jakarta';
+      configuredTimeFormat = cfg.time_format || '24h';
       updateBrandingPreview();
     }
   } catch (err) {
@@ -1157,6 +1206,8 @@ async function handleSaveBranding(e) {
     site_subtitle: document.getElementById('branding-sub-input').value.trim(),
     logo_url: document.getElementById('branding-logo-input').value.trim(),
     custom_footer: document.getElementById('branding-footer-input').value.trim(),
+    timezone: document.getElementById('branding-tz-select') ? document.getElementById('branding-tz-select').value : 'Asia/Jakarta',
+    time_format: document.getElementById('branding-format-select') ? document.getElementById('branding-format-select').value : '24h',
   };
 
   const statusMsg = document.getElementById('branding-status-msg');
@@ -1172,9 +1223,12 @@ async function handleSaveBranding(e) {
     });
     const data = await res.json();
     if (res.ok) {
-      statusMsg.textContent = currentLang === 'id' ? 'Branding berhasil disimpan!' : 'Branding saved successfully!';
+      statusMsg.textContent = currentLang === 'id' ? 'Branding & pengaturan waktu berhasil disimpan!' : 'Branding & time settings saved successfully!';
       statusMsg.style.color = 'var(--green)';
       statusMsg.style.display = 'block';
+      configuredTimezone = payload.timezone;
+      configuredTimeFormat = payload.time_format;
+      updateAdminLastFetched();
       if (payload.logo_url && payload.logo_url.trim()) {
         updateFavicon(payload.logo_url.trim());
       } else {

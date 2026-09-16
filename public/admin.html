@@ -416,6 +416,35 @@
                   <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Keterangan tambahan di sudut kanan bawah halaman publik</div>
                 </div>
 
+                <div class="form-row" style="margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--card-border);">
+                  <div class="form-group">
+                    <label>Zona Waktu Sistem (Timezone)</label>
+                    <select class="form-control" id="branding-tz-select">
+                      <option value="Asia/Jakarta">Asia/Jakarta (WIB • UTC+7)</option>
+                      <option value="Asia/Makassar">Asia/Makassar (WITA • UTC+8)</option>
+                      <option value="Asia/Jayapura">Asia/Jayapura (WIT • UTC+9)</option>
+                      <option value="Asia/Singapore">Asia/Singapore (SGT • UTC+8)</option>
+                      <option value="UTC">UTC (Universal Coordinated Time • UTC+0)</option>
+                      <option value="Europe/London">Europe/London (GMT/BST • UTC+0/+1)</option>
+                      <option value="Europe/Berlin">Europe/Berlin (CET/CEST • UTC+1/+2)</option>
+                      <option value="America/New_York">America/New_York (EST/EDT • UTC-5/-4)</option>
+                      <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT • UTC-8/-7)</option>
+                      <option value="Asia/Tokyo">Asia/Tokyo (JST • UTC+9)</option>
+                      <option value="Australia/Sydney">Australia/Sydney (AEST/AEDT • UTC+10/+11)</option>
+                    </select>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Zona waktu acuan untuk stempel waktu insiden dan riwayat</div>
+                  </div>
+
+                  <div class="form-group">
+                    <label>Format Tampilan Jam (Time Format)</label>
+                    <select class="form-control" id="branding-format-select">
+                      <option value="24h">24 Jam (Contoh: 14:30:00 WIB)</option>
+                      <option value="12h">12 Jam AM/PM (Contoh: 02:30:00 PM WIB)</option>
+                    </select>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Format penulisan waktu di linimasa dan status bar</div>
+                  </div>
+                </div>
+
                 <!-- Live Preview Inset Box -->
                 <div style="margin: 20px 0; background: var(--subtle-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 14px 18px;">
                   <div style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">
