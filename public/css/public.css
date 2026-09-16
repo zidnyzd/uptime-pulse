@@ -320,12 +320,14 @@
 }
 
 .service-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #f7f8f8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
 
 .service-header-meta {
@@ -404,10 +406,17 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-muted);
-  opacity: 0.75;
-  margin-top: -2px;
+  opacity: 0.85;
+  margin-top: 3px;
+}
+
+.strip-footer-uptime {
+  font-weight: 600;
+  color: #cbd5e1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
 }
 
 /* ============================================================

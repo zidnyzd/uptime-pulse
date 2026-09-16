@@ -177,22 +177,24 @@ function renderPublicView(data) {
       barsHtml += `<div class="strip-bar ${cls}" title="${title}"></div>`;
     }
 
+    const uptimeText = currentPublicLang === 'id'
+      ? `${m.uptime_24h.toFixed(1)}% uptime (24 jam)`
+      : `${m.uptime_24h.toFixed(1)}% uptime (24h)`;
+
     row.innerHTML = `
       <div class="service-header">
         <div class="service-name-wrap">
           <div class="service-status-dot ${dotClass}"></div>
-          <span class="service-name">${escapeHtml(m.name)}</span>
+          <span class="service-name" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</span>
         </div>
-        <div class="service-header-meta">
-          <span class="service-uptime-val">${m.uptime_24h.toFixed(1)}%</span>
-          <span class="service-status-pill ${pillClass}">${pillText}</span>
-        </div>
+        <div class="service-status-pill ${pillClass}">${pillText}</div>
       </div>
       <div class="history-strip">
         ${barsHtml}
       </div>
       <div class="strip-footer">
         <span>${t.time_30d_ago}</span>
+        <span class="strip-footer-uptime">${uptimeText}</span>
         <span>${t.time_today}</span>
       </div>
     `;
