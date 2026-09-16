@@ -145,6 +145,32 @@ impl Monitor {
         Ok(affected > 0)
     }
 
+    // Mereset seluruh statistik monitor dari awal: hapus heartbeat + insiden,
+    // nolkan hitungan gagal beruntun, dan kembalikan status ke 'pending'
+    pub async fn reset_stats(db: &DbPool, id: i64) -> Result<Option<(usize, usize)>> {
+        let conn = db.lock().await;
+        let exists: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM monitors WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )?;
+        if exists == 0 {
+            return Ok(None);
+        }
+        let heartbeats_deleted =
+            conn.execute("DELETE FROM heartbeats WHERE monitor_id = ?1", params![id])?;
+        let incidents_deleted =
+            conn.execute("DELETE FROM incidents WHERE monitor_id = ?1", params![id])?;
+        conn.execute(
+            "UPDATE monitors
+             SET consecutive_fails = 0, status = 'pending',
+                 last_latency_ms = NULL, last_check_at = NULL
+             WHERE id = ?1",
+            params![id],
+        )?;
+        Ok(Some((heartbeats_deleted, incidents_deleted)))
+    }
+
     // Mengubah status aktif (pause / resume)
     pub async fn toggle_pause(db: &DbPool, id: i64) -> Result<bool> {
         let conn = db.lock().await;

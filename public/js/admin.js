@@ -68,6 +68,7 @@ const i18n = {
     btn_pause: 'Jeda / Lanjutkan',
     btn_edit: 'Edit Monitor',
     btn_delete: 'Hapus Monitor',
+    btn_reset: 'Reset Statistik',
 
     footer_engine: 'UptimePulse Engine • Rust Axum & SQLite WAL',
     footer_arch: 'Single Static Binary • Konkurensi via Tokio'
@@ -133,6 +134,7 @@ const i18n = {
     btn_pause: 'Pause / Resume',
     btn_edit: 'Edit Monitor',
     btn_delete: 'Delete Monitor',
+    btn_reset: 'Reset Stats',
 
     footer_engine: 'UptimePulse Engine • Rust Axum & SQLite WAL',
     footer_arch: 'Single Static Binary • Concurrency via Tokio'
@@ -482,6 +484,12 @@ function createMonitorWidget(m) {
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
           </svg>
         </button>
+        <button class="btn-icon" title="${i18n[currentLang].btn_reset}" onclick="resetStats(${m.id})">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+          </svg>
+        </button>
         <button class="btn-icon danger" title="${i18n[currentLang].btn_delete}" onclick="deleteMonitor(${m.id})">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"></polyline>
@@ -734,10 +742,33 @@ async function deleteMonitor(id) {
   try {
     await apiFetch(`/api/monitors/${id}`, { method: 'DELETE' });
     monitorsMap.delete(id);
+    detailsMap.delete(id);
     renderMonitors();
     recalcStats();
   } catch (err) {
     alert('Delete failed: ' + err);
+  }
+}
+
+// Action Reset Stats: hapus seluruh heartbeat + insiden monitor, ukur ulang dari awal
+async function resetStats(id) {
+  const msg = currentLang === 'id'
+    ? 'Reset seluruh statistik monitor ini dari awal?\nSemua riwayat heartbeat dan insiden akan dihapus permanen.'
+    : 'Reset all stats for this monitor from scratch?\nAll heartbeat history and incidents will be permanently deleted.';
+  if (!confirm(msg)) return;
+  try {
+    const res = await apiFetch(`/api/monitors/${id}/reset`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      alert((currentLang === 'id' ? 'Reset gagal: ' : 'Reset failed: ') + (data.error || data.message || res.status));
+      return;
+    }
+    detailsMap.delete(id);
+    await loadDetails(id);
+    renderMonitors();
+    recalcStats();
+  } catch (err) {
+    alert('Reset failed: ' + err);
   }
 }
 

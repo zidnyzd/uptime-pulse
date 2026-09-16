@@ -64,6 +64,7 @@ pub fn build_api_router(
         )
         .route("/api/monitors/{id}/pause", post(monitor_controller::toggle_pause))
         .route("/api/monitors/{id}/check", post(monitor_controller::check))
+        .route("/api/monitors/{id}/reset", post(monitor_controller::reset))
         .with_state(monitor_controller_state)
         .route_layer(from_fn_with_state(auth_mw_state.clone(), require_admin_auth));
 
