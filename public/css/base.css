@@ -91,6 +91,14 @@ body {
     radial-gradient(circle at 100% 100%, rgba(9, 105, 218, 0.04), transparent 40%);
 }
 
+/* Skala tampilan global +10% di desktop (setara browser zoom 110%).
+   Mobile (<640px) dikecualikan agar layout responsif yang sudah 0px leak tidak bergeser. */
+@media (min-width: 641px) {
+  body {
+    zoom: 1.1;
+  }
+}
+
 .container {
   max-width: 920px;
   width: 100%;
