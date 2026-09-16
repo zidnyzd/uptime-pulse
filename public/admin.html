@@ -509,6 +509,41 @@
           </button>
         </div>
       </form>
+
+      <!-- Section 3: SQLite Storage & Maintenance (OpenWrt Flash Protection) -->
+      <div style="margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--card-border);">
+        <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+          Storage &amp; Maintenance (Flash Protection)
+        </label>
+        <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 12px; font-size: 12px; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: var(--text-muted);">Database Path:</span>
+            <span style="font-family: monospace; color: #f7f8f8;" id="db-stat-path">uptime.db</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: var(--text-muted);">Database Size:</span>
+            <span style="font-family: monospace; color: #f7f8f8;" id="db-stat-size">-- KB</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: var(--text-muted);">Recorded Heartbeats:</span>
+            <span style="font-family: monospace; color: #f7f8f8;" id="db-stat-heartbeats">--</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Auto-Prune Retention:</span>
+            <span style="color: var(--green); font-weight: 500;" id="db-stat-retention">30 Hari</span>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end;">
+          <button type="button" class="btn btn-sm" id="btn-manual-prune" onclick="handleManualPrune()" style="gap: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            <span>Prune Logs &amp; Checkpoint WAL</span>
+          </button>
+        </div>
+        <div id="prune-status-msg" style="font-size: 11px; margin-top: 8px; display: none;"></div>
+      </div>
     </div>
   </div>
 

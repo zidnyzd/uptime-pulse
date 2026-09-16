@@ -27,9 +27,32 @@ pub struct ProbeEvent {
 pub type EventSender = broadcast::Sender<ProbeEvent>;
 
 // Memulai scheduler background loop yang berjalan terus-menerus selama aplikasi aktif
-pub fn start_scheduler(db: DbPool, event_tx: EventSender) {
+pub fn start_scheduler(db: DbPool, event_tx: EventSender, retention_days: u32) {
     // HashMap in-memory untuk mencatat waktu terakhir tiap monitor dieksekusi
     let last_checked = Arc::new(Mutex::new(HashMap::new()));
+
+    // Worker background untuk pembersihan otomatis (auto-pruning) berkala demi menjaga flash OpenWrt
+    let db_prune = db.clone();
+    tokio::spawn(async move {
+        info!("Auto-pruning worker initialized (Retention: {} days).", retention_days);
+        loop {
+            match crate::database::prune_old_records(&db_prune, retention_days).await {
+                Ok(res) => {
+                    if res.heartbeats_deleted > 0 || res.sessions_deleted > 0 {
+                        info!(
+                            "🧹 Auto-prune executed: {} old heartbeats, {} expired sessions purged. WAL truncated.",
+                            res.heartbeats_deleted, res.sessions_deleted
+                        );
+                    }
+                }
+                Err(e) => {
+                    error!("Auto-prune worker error: {}", e);
+                }
+            }
+            // Jalankan pruning setiap 6 jam sekali
+            tokio::time::sleep(Duration::from_secs(6 * 3600)).await;
+        }
+    });
 
     tokio::spawn(async move {
         info!("Engine scheduler background worker started.");

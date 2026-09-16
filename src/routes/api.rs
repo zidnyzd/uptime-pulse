@@ -16,7 +16,12 @@ use crate::database::DbPool;
 use crate::engine::EventSender;
 use crate::middlewares::auth::{require_admin_auth, AuthMiddlewareState};
 
-pub fn build_api_router(db: DbPool, event_tx: EventSender) -> Router {
+pub fn build_api_router(
+    db: DbPool,
+    event_tx: EventSender,
+    db_path: String,
+    retention_days: u32,
+) -> Router {
     let auth_controller_state = Arc::new(AuthControllerState { db: db.clone() });
     let monitor_controller_state = Arc::new(MonitorControllerState {
         db: db.clone(),
@@ -80,11 +85,20 @@ pub fn build_api_router(db: DbPool, event_tx: EventSender) -> Router {
         .with_state(auth_controller_state)
         .route_layer(from_fn_with_state(auth_mw_state.clone(), require_admin_auth));
 
-    let backup_controller_state = Arc::new(BackupControllerState { db: db.clone() });
+    let backup_controller_state = Arc::new(BackupControllerState {
+        db: db.clone(),
+        db_path,
+        retention_days,
+    });
     let admin_backup_routes = Router::new()
         .route("/api/backup/export", get(backup_controller::export_json))
-        .route("/api/backup/database", get(backup_controller::download_database))
+        .route(
+            "/api/backup/database",
+            get(backup_controller::download_database),
+        )
         .route("/api/backup/restore", post(backup_controller::restore_json))
+        .route("/api/backup/stats", get(backup_controller::db_stats))
+        .route("/api/backup/prune", post(backup_controller::prune_db))
         .with_state(backup_controller_state)
         .route_layer(from_fn_with_state(auth_mw_state, require_admin_auth));
 

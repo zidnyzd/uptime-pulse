@@ -16,6 +16,8 @@ use crate::models::Monitor;
 
 pub struct BackupControllerState {
     pub db: DbPool,
+    pub db_path: String,
+    pub retention_days: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -227,5 +229,34 @@ pub async fn restore_json(
         "mode": mode,
         "imported_monitors": imported_count,
         "message": format!("Berhasil memulihkan {} monitor (Mode: {})", imported_count, mode)
+    })))
+}
+
+/// GET /api/backup/stats - Informasi ukuran database, jumlah log, dan status storage
+pub async fn db_stats(
+    State(state): State<Arc<BackupControllerState>>,
+) -> Result<Json<crate::database::DbStats>, (StatusCode, String)> {
+    crate::database::get_db_stats(&state.db, &state.db_path, state.retention_days)
+        .await
+        .map(Json)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
+}
+
+/// POST /api/backup/prune - Trigger manual pruning dan WAL checkpoint oleh admin
+pub async fn prune_db(
+    State(state): State<Arc<BackupControllerState>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let res = crate::database::prune_old_records(&state.db, state.retention_days)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(json!({
+        "status": "success",
+        "message": format!(
+            "Pembersihan database selesai: {} riwayat heartbeat lama dan {} session kedaluwarsa dihapus. File WAL telah dirampingkan.",
+            res.heartbeats_deleted, res.sessions_deleted
+        ),
+        "heartbeats_deleted": res.heartbeats_deleted,
+        "sessions_deleted": res.sessions_deleted,
     })))
 }

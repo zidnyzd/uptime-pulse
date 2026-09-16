@@ -1,4 +1,5 @@
 // Deklarasi modul arsitektur MVC (Model-View-Controller)
+mod config;
 mod database;
 mod engine;
 mod models;
@@ -14,6 +15,15 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Parse runtime configuration (CLI flags & Env Variables)
+    let app_config = match config::AppConfig::parse() {
+        Ok(c) => c,
+        Err(err) => {
+            eprintln!("Configuration error: {}", err);
+            std::process::exit(1);
+        }
+    };
+
     // Setup structured logging; format log konsol dan filter trace
     tracing_subscriber::registry()
         .with(
@@ -23,33 +33,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Inisialisasi Database SQLite
-    let db_path = std::env::var("UPTIME_DB_PATH").unwrap_or_else(|_| "uptime.db".to_string());
-    info!("Initializing database at '{}'...", db_path);
-    let db = database::init_db(&db_path)?;
+    info!(
+        "Config loaded: Host={}, Port={}, DB='{}', Retention={} days",
+        app_config.host, app_config.port, app_config.db_path, app_config.retention_days
+    );
 
-    // Pastikan user admin default tersedia (dapat di-override via env ADMIN_PASSWORD)
-    let default_admin_pass = std::env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "admin".to_string());
+    // Inisialisasi Database SQLite
+    info!("Initializing database at '{}'...", app_config.db_path);
+    let db = database::init_db(&app_config.db_path)?;
+
+    // Pastikan user admin default tersedia (dapat di-override via flag --password atau env ADMIN_PASSWORD)
+    let default_admin_pass = app_config
+        .admin_password
+        .unwrap_or_else(|| "admin".to_string());
     models::User::ensure_admin_exists(&db, &default_admin_pass).await?;
     info!("Admin account verified (username: 'admin').");
 
     // Channel broadcast Tokio untuk pengiriman event probe secara real-time ke web SSE
     let (event_tx, _) = broadcast::channel(100);
 
-    // Menjalankan scheduler loop prober di background task Tokio
-    engine::start_scheduler(db.clone(), event_tx.clone());
+    // Menjalankan scheduler prober & auto-pruning loop di background task Tokio
+    engine::start_scheduler(db.clone(), event_tx.clone(), app_config.retention_days);
 
     // Membangun routing MVC aplikasi (API publik, Admin routes dengan middleware auth, Web views)
-    let app = routes::create_router(db, event_tx);
+    let app = routes::create_router(
+        db,
+        event_tx,
+        app_config.db_path.clone(),
+        app_config.retention_days,
+    );
 
     // Konfigurasi binding port dan host
-    let host = std::env::var("UPTIME_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-    let port: u16 = std::env::var("UPTIME_PORT")
-        .ok()
-        .and_then(|p| p.parse().ok())
-        .unwrap_or(3001);
-
-    let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
+    let addr: SocketAddr = format!("{}:{}", app_config.host, app_config.port).parse()?;
     info!("🚀 UptimePulse running at http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;

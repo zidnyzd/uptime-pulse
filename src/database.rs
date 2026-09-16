@@ -99,3 +99,84 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
 
     Ok(Arc::new(Mutex::new(conn)))
 }
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PruneResult {
+    pub heartbeats_deleted: usize,
+    pub sessions_deleted: usize,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct DbStats {
+    pub db_size_bytes: u64,
+    pub wal_size_bytes: u64,
+    pub total_heartbeats: i64,
+    pub total_monitors: i64,
+    pub total_incidents: i64,
+    pub total_sessions: i64,
+    pub retention_days: u32,
+    pub db_path: String,
+}
+
+/// Menghapus log riwayat lama sesuai batas hari retensi dan merampingkan WAL SQLite
+pub async fn prune_old_records(db: &DbPool, retention_days: u32) -> Result<PruneResult> {
+    let conn = db.lock().await;
+    let threshold_modifier = format!("-{} days", retention_days);
+
+    // Hapus log heartbeat yang melebihi batas retensi
+    let heartbeats_deleted = conn.execute(
+        "DELETE FROM heartbeats WHERE checked_at < datetime('now', 'localtime', ?)",
+        [&threshold_modifier],
+    )?;
+
+    // Hapus session login yang sudah expired
+    let sessions_deleted = conn.execute(
+        "DELETE FROM sessions WHERE expires_at < datetime('now', 'localtime')",
+        [],
+    )?;
+
+    // Rampingkan WAL log ke file database utama untuk menghemat ruang flash OpenWrt
+    let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+
+    Ok(PruneResult {
+        heartbeats_deleted,
+        sessions_deleted,
+    })
+}
+
+/// Mengambil informasi ukuran file database dan jumlah rekaman log
+pub async fn get_db_stats(db: &DbPool, db_path: &str, retention_days: u32) -> Result<DbStats> {
+    let conn = db.lock().await;
+
+    let db_size_bytes = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
+    let wal_size_bytes = std::fs::metadata(format!("{}-wal", db_path))
+        .map(|m| m.len())
+        .unwrap_or(0);
+
+    let total_heartbeats: i64 = conn
+        .query_row("SELECT COUNT(*) FROM heartbeats", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    let total_monitors: i64 = conn
+        .query_row("SELECT COUNT(*) FROM monitors", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    let total_incidents: i64 = conn
+        .query_row("SELECT COUNT(*) FROM incidents", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    let total_sessions: i64 = conn
+        .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    Ok(DbStats {
+        db_size_bytes,
+        wal_size_bytes,
+        total_heartbeats,
+        total_monitors,
+        total_incidents,
+        total_sessions,
+        retention_days,
+        db_path: db_path.to_string(),
+    })
+}

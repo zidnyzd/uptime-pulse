@@ -1146,6 +1146,9 @@ function openBackupModal() {
   document.getElementById('backup-modal').style.display = 'flex';
   const statusMsg = document.getElementById('restore-status-msg');
   if (statusMsg) statusMsg.style.display = 'none';
+  const pruneMsg = document.getElementById('prune-status-msg');
+  if (pruneMsg) pruneMsg.style.display = 'none';
+  loadDbStats();
 }
 
 function closeBackupModal() {
@@ -1264,6 +1267,69 @@ async function handleRestoreBackup(e) {
   };
 
   reader.readAsText(file);
+}
+
+// --- Database Storage & Maintenance (Pruning & Stats) ---
+async function loadDbStats() {
+  try {
+    const res = await apiFetch('/api/backup/stats');
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const pathEl = document.getElementById('db-stat-path');
+    if (pathEl) pathEl.textContent = data.db_path;
+
+    const sizeEl = document.getElementById('db-stat-size');
+    if (sizeEl) {
+      const dbKb = (data.db_size_bytes / 1024).toFixed(1);
+      const walKb = (data.wal_size_bytes / 1024).toFixed(1);
+      sizeEl.textContent = `${dbKb} KB (WAL: ${walKb} KB)`;
+    }
+
+    const hbEl = document.getElementById('db-stat-heartbeats');
+    if (hbEl) hbEl.textContent = Number(data.total_heartbeats).toLocaleString();
+
+    const retEl = document.getElementById('db-stat-retention');
+    if (retEl) {
+      retEl.textContent = `${data.retention_days} ${currentLang === 'id' ? 'Hari (Otomatis)' : 'Days (Automatic)'}`;
+    }
+  } catch (err) {
+    console.error('Failed to load DB stats:', err);
+  }
+}
+
+async function handleManualPrune() {
+  const confirmMsg = currentLang === 'id'
+    ? 'Hapus seluruh log riwayat pemeriksaan yang melebihi batas retensi dan rampingkan file WAL database?'
+    : 'Purge all heartbeat logs older than retention days and truncate WAL database file?';
+  if (!confirm(confirmMsg)) return;
+
+  const btn = document.getElementById('btn-manual-prune');
+  const msg = document.getElementById('prune-status-msg');
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await apiFetch('/api/backup/prune', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      if (msg) {
+        msg.style.display = 'block';
+        msg.style.color = 'var(--green)';
+        msg.textContent = data.message;
+      }
+      loadDbStats();
+    } else {
+      throw new Error(data.error || 'Gagal melakukan pruning');
+    }
+  } catch (err) {
+    if (msg) {
+      msg.style.display = 'block';
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Error: ' + err.message;
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
