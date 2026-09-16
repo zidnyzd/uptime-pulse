@@ -172,7 +172,13 @@
         </div>
 
         <div class="top-nav-right">
-          <!-- Theme Toggle (Light / Dark) -->
+          <!-- Switch Language (ID / EN) -->
+          <div class="lang-switcher" id="lang-switcher" title="Switch Language / Ganti Bahasa">
+            <button type="button" class="lang-btn" id="lang-btn-id" onclick="setLanguage('id')">ID</button>
+            <button type="button" class="lang-btn active" id="lang-btn-en" onclick="setLanguage('en')">EN</button>
+          </div>
+
+          <!-- Theme Toggle (Light / Dark) - Menggantikan live-indicator-tag hijau di sebelah tombol Add -->
           <button type="button" class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
             <svg class="sun-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="5"></circle>
@@ -190,16 +196,6 @@
             </svg>
           </button>
 
-          <!-- Switch Language (ID / EN) -->
-          <div class="lang-switcher" id="lang-switcher" title="Switch Language / Ganti Bahasa">
-            <button type="button" class="lang-btn" id="lang-btn-id" onclick="setLanguage('id')">ID</button>
-            <button type="button" class="lang-btn active" id="lang-btn-en" onclick="setLanguage('en')">EN</button>
-          </div>
-
-          <div class="live-indicator-tag">
-            <span class="status-dot"></span>
-            <span data-i18n="top_live_sync">Live Sync</span>
-          </div>
           <button class="btn btn-primary btn-sm" onclick="openAddModal()">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <line x1="12" y1="5" x2="12" y2="19"></line>

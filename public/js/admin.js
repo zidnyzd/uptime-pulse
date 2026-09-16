@@ -1,5 +1,6 @@
 // Client Script untuk Option 3: Widget / Tile Cards Grid (UptimePulse Admin)
 let monitorsMap = new Map();
+let detailsMap = new Map();
 let currentFilter = 'all';
 let searchQuery = '';
 
@@ -304,6 +305,7 @@ async function loadDetails(id) {
     const res = await apiFetch(`/api/monitors/${id}`);
     if (!res.ok) return;
     const data = await res.json();
+    detailsMap.set(id, data);
     monitorsMap.set(id, data.monitor);
     updateCardMetrics(data);
     recalcStats();
@@ -347,6 +349,9 @@ function renderMonitors() {
   container.innerHTML = '';
   for (const m of filtered) {
     container.appendChild(createMonitorWidget(m));
+    if (detailsMap.has(m.id)) {
+      updateCardMetrics(detailsMap.get(m.id));
+    }
   }
 }
 
