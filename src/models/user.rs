@@ -120,10 +120,14 @@ impl User {
         Ok(count > 0)
     }
 
-    // Menghapus session token saat logout
-    pub async fn delete_session(db: &DbPool, token: &str) -> Result<()> {
+    // Menghapus SEMUA session milik user pemilik token (dipakai saat logout
+    // agar sesi lain di perangkat/browser lain ikut hangus)
+    pub async fn delete_all_user_sessions(db: &DbPool, token: &str) -> Result<()> {
         let conn = db.lock().await;
-        conn.execute("DELETE FROM sessions WHERE token = ?1", [token])?;
+        conn.execute(
+            "DELETE FROM sessions WHERE user_id = (SELECT user_id FROM sessions WHERE token = ?1)",
+            [token],
+        )?;
         Ok(())
     }
 

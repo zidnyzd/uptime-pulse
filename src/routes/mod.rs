@@ -1,7 +1,7 @@
 pub mod api;
 pub mod web;
 
-use axum::Router;
+use axum::{middleware, Router};
 use crate::database::DbPool;
 use crate::engine::EventSender;
 
@@ -14,6 +14,10 @@ pub fn create_router(
     let api_router = api::build_api_router(db, event_tx, db_path, retention_days);
     let web_router = web::build_web_router();
 
-    // Gabungkan routing API dan Web
-    api_router.merge(web_router)
+    // Gabungkan routing API dan Web + security headers global
+    api_router
+        .merge(web_router)
+        .layer(middleware::from_fn(
+            crate::middlewares::security::security_headers,
+        ))
 }

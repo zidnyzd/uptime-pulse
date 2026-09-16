@@ -15,6 +15,7 @@ use crate::controllers::{
 use crate::database::DbPool;
 use crate::engine::EventSender;
 use crate::middlewares::auth::{require_admin_auth, AuthMiddlewareState};
+use crate::middlewares::rate_limit::LoginRateLimiter;
 
 pub fn build_api_router(
     db: DbPool,
@@ -22,7 +23,10 @@ pub fn build_api_router(
     db_path: String,
     retention_days: u32,
 ) -> Router {
-    let auth_controller_state = Arc::new(AuthControllerState { db: db.clone() });
+    let auth_controller_state = Arc::new(AuthControllerState {
+        db: db.clone(),
+        login_limiter: Arc::new(LoginRateLimiter::new()),
+    });
     let monitor_controller_state = Arc::new(MonitorControllerState {
         db: db.clone(),
         event_tx: event_tx.clone(),

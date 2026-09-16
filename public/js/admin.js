@@ -903,8 +903,8 @@ async function handleChangePassword(e) {
     return;
   }
 
-  if (newPassword.length < 4) {
-    statusMsg.textContent = 'Kata sandi baru minimal 4 karakter.';
+  if (newPassword.length < 8) {
+    statusMsg.textContent = 'Kata sandi baru minimal 8 karakter.';
     statusMsg.style.color = 'var(--red)';
     statusMsg.style.display = 'block';
     return;

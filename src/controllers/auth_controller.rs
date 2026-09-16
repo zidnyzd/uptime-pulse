@@ -1,17 +1,20 @@
 use axum::{
-    extract::State,
+    extract::{ConnectInfo, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
 use serde::Deserialize;
 use serde_json::json;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use crate::database::DbPool;
+use crate::middlewares::rate_limit::LoginRateLimiter;
 use crate::models::User;
 
 pub struct AuthControllerState {
     pub db: DbPool,
+    pub login_limiter: Arc<LoginRateLimiter>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -20,13 +23,28 @@ pub struct LoginPayload {
     pub password: String,
 }
 
-// Handler login admin: memverifikasi kata sandi dan membuat cookie session
+// Handler login admin: rate-limit anti brute-force + cookie session aman
 pub async fn login(
     State(state): State<Arc<AuthControllerState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Json(payload): Json<LoginPayload>,
 ) -> Result<Response, (StatusCode, Json<serde_json::Value>)> {
+    let ip: IpAddr = addr.ip();
+    // Tolak dini jika IP sedang diblokir (HTTP 429 + info sisa blokir)
+    if let Err(wait_secs) = state.login_limiter.check(&ip).await {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({
+                "success": false,
+                "error": format!("Terlalu banyak percobaan gagal. Coba lagi dalam {} detik.", wait_secs)
+            })),
+        ));
+    }
+
     match User::authenticate(&state.db, &payload.username, &payload.password).await {
         Ok(Some(user)) => {
+            // Login sukses -> reset hitungan gagal IP ini
+            state.login_limiter.record_success(&ip).await;
             let token = User::create_session(&state.db, user.id).await.map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -52,13 +70,17 @@ pub async fn login(
                 body,
             ).into_response())
         }
-        Ok(None) => Err((
-            StatusCode::UNAUTHORIZED,
-            Json(json!({
-                "success": false,
-                "error": "Kombinasi username atau password salah"
-            })),
-        )),
+        Ok(None) => {
+            // Kredensial salah -> catat agar brute-force terkunci setelah 5x
+            state.login_limiter.record_fail(&ip).await;
+            Err((
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "success": false,
+                    "error": "Kombinasi username atau password salah"
+                })),
+            ))
+        }
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "error": e.to_string() })),
@@ -66,7 +88,7 @@ pub async fn login(
     }
 }
 
-// Handler logout: menghapus session token dari database dan mengosongkan cookie
+// Handler logout: menghapus SEMUA session user (semua perangkat) + mengosongkan cookie
 pub async fn logout(
     State(state): State<Arc<AuthControllerState>>,
     headers: HeaderMap,
@@ -76,7 +98,8 @@ pub async fn logout(
             let mut parts = pair.trim().splitn(2, '=');
             if parts.next() == Some("uptime_session") {
                 if let Some(token) = parts.next() {
-                    let _ = User::delete_session(&state.db, token).await;
+                    // Hanguskan sesi di semua perangkat, bukan cuma token ini
+                    let _ = User::delete_all_user_sessions(&state.db, token).await;
                 }
             }
         }
@@ -132,15 +155,15 @@ pub struct ChangePasswordPayload {
     pub new_password: String,
 }
 
-// Handler ubah kata sandi admin
+// Handler ubah kata sandi admin (minimal 8 karakter)
 pub async fn change_password(
     State(state): State<Arc<AuthControllerState>>,
     Json(payload): Json<ChangePasswordPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    if payload.new_password.trim().len() < 4 {
+    if payload.new_password.trim().len() < 8 {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(json!({ "success": false, "error": "Kata sandi baru minimal 4 karakter" })),
+            Json(json!({ "success": false, "error": "Kata sandi baru minimal 8 karakter" })),
         ));
     }
 
