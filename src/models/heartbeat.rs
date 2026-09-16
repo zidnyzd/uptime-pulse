@@ -219,7 +219,7 @@ impl Heartbeat {
         Ok(buckets)
     }
 
-    // Mengambil 30 bucket harian untuk 30 hari terakhir (untuk visualisasi bar publik)
+    // Mengambil 90 bucket harian untuk 90 hari terakhir (visualisasi timeline bar publik)
     pub async fn get_daily_buckets(db: &DbPool, monitor_id: i64) -> Result<Vec<BarBucket>> {
         let conn = db.lock().await;
         let mut stmt = conn.prepare(
@@ -229,7 +229,7 @@ impl Heartbeat {
                 SUM(CASE WHEN is_up = 1 THEN 1 ELSE 0 END) as up_cnt,
                 AVG(CASE WHEN is_up = 1 THEN latency_ms ELSE NULL END) as avg_lat
              FROM heartbeats 
-             WHERE monitor_id = ?1 AND checked_at >= date('now', '-29 days', 'localtime')
+             WHERE monitor_id = ?1 AND checked_at >= date('now', '-89 days', 'localtime')
              GROUP BY day"
         )?;
 
@@ -257,10 +257,10 @@ impl Heartbeat {
         }
 
         let now = Local::now();
-        let mut buckets = Vec::with_capacity(30);
+        let mut buckets = Vec::with_capacity(90);
 
-        // Buat tepat 30 slot hari dari 29 hari lalu hingga hari ini
-        for i in (0..30).rev() {
+        // Buat tepat 90 slot hari dari 89 hari lalu hingga hari ini
+        for i in (0..90).rev() {
             let target_date = now - Duration::days(i);
             let day_key = target_date.format("%Y-%m-%d").to_string();
             let label = target_date.format("%d %b").to_string();

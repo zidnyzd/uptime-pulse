@@ -14,10 +14,12 @@ const publicI18n = {
     kpi_services: 'Layanan Operasional',
     kpi_latency: 'Rata-rata Latensi',
     section_services: 'Layanan & Infrastruktur',
+    section_history_90d: 'Riwayat 90 hari',
     section_history_30d: 'Riwayat 30 hari',
     section_incidents: 'Riwayat Insiden',
     section_last_30d: '30 hari terakhir',
     no_incidents: 'Tidak ada insiden atau gangguan yang dilaporkan dalam 30 hari terakhir.',
+    time_90d_ago: '90 hari lalu',
     time_30d_ago: '30 hari lalu',
     time_today: 'Hari ini',
     status_operational: 'Operasional',
@@ -37,10 +39,12 @@ const publicI18n = {
     kpi_services: 'Services Operational',
     kpi_latency: 'Average Latency',
     section_services: 'Services & Infrastructure',
+    section_history_90d: '90 days history',
     section_history_30d: '30 days history',
     section_incidents: 'Incident History',
     section_last_30d: 'Last 30 days',
     no_incidents: 'No incidents or disruptions reported in the past 30 days.',
+    time_90d_ago: '90 days ago',
     time_30d_ago: '30 days ago',
     time_today: 'Today',
     status_operational: 'Operational',
@@ -217,7 +221,10 @@ function renderPublicView(data) {
         ${barsHtml}
       </div>
       <div class="strip-footer">
-        <span>${t.time_30d_ago}</span>
+        <span class="timeline-ago-col">
+          <span class="desktop-history-note">${t.time_90d_ago}</span>
+          <span class="mobile-history-note">${t.time_30d_ago}</span>
+        </span>
         <span class="strip-footer-uptime">${uptimeText}</span>
         <span>${t.time_today}</span>
       </div>

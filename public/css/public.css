@@ -373,6 +373,14 @@
 }
 
 /* Micro-timeline bars (Sleek Continuous Timeline Ribbon) */
+.desktop-history-note {
+  display: inline;
+}
+
+.mobile-history-note {
+  display: none;
+}
+
 .history-strip {
   display: flex;
   align-items: center;
@@ -712,8 +720,22 @@
     font-size: 13px;
   }
 
+  .desktop-history-note {
+    display: none;
+  }
+
+  .mobile-history-note {
+    display: inline;
+  }
+
+  /* Di mobile (<640px), tampilkan 30 hari terkini secara proporsional dengan menyembunyikan 60 hari pertama */
+  .strip-bar:nth-child(-n+60) {
+    display: none;
+  }
+
   .strip-bar {
     height: 16px;
+    border-radius: 2px;
   }
 
   .public-footer {

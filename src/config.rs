@@ -23,7 +23,7 @@ impl AppConfig {
         let mut retention_days: u32 = env::var("UPTIME_RETENTION_DAYS")
             .ok()
             .and_then(|r| r.parse().ok())
-            .unwrap_or(30);
+            .unwrap_or(90);
         let mut admin_password = env::var("ADMIN_PASSWORD").ok();
 
         let mut i = 1;
@@ -107,7 +107,7 @@ OPTIONS:
   -h, --host <HOST>         Listen host address [env: UPTIME_HOST] (default: 0.0.0.0)
   -p, --port <PORT>         Listen port [env: UPTIME_PORT] (default: 3001)
   -d, --db <PATH>           SQLite database path [env: UPTIME_DB_PATH] (default: uptime.db)
-  -r, --retention <DAYS>    Log retention days before auto-pruning [env: UPTIME_RETENTION_DAYS] (default: 30)
+  -r, --retention <DAYS>    Log retention days before auto-pruning [env: UPTIME_RETENTION_DAYS] (default: 90)
       --password <PASS>     Default admin password if not set [env: ADMIN_PASSWORD]
       --help                Show this help message
 "#
