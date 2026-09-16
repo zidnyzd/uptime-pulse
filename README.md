@@ -1,30 +1,52 @@
-# UptimePulse
-
 <div align="center">
-  <h3>Ultra-Lightweight Self-Hosted Uptime Monitoring System</h3>
-  <p>Built with pure Rust (Axum, Tokio, Rusqlite, Rustls). Designed for high performance on low-resource hardware like OpenWrt STB ARM64, Raspberry Pi, and local servers.</p>
+  <h1>⚡ UptimePulse</h1>
+  <p><strong>Ultra-lightweight self-hosted uptime monitoring system built with pure Rust.</strong></p>
+  <p>Engineered for minimal footprint, memory safety, and high concurrency on low-resource hardware such as OpenWrt STBs, Raspberry Pi, ARM boards, and local servers.</p>
+
+  <p>
+    <a href="https://github.com/zidnyzd/uptime-pulse"><img src="https://img.shields.io/badge/Rust-2024_Edition-orange?logo=rust&logoColor=white" alt="Rust 2024"></a>
+    <a href="https://github.com/tokio-rs/axum"><img src="https://img.shields.io/badge/Axum-0.8-blue?logo=tokio&logoColor=white" alt="Axum 0.8"></a>
+    <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white" alt="SQLite WAL"></a>
+    <a href="https://github.com/zidnyzd/uptime-pulse/pkgs/container/uptime-pulse"><img src="https://img.shields.io/badge/Arch-ARM64%20|%20AMD64-blueviolet?logo=arm&logoColor=white" alt="Multi-Arch"></a>
+    <a href="https://github.com/zidnyzd/uptime-pulse/pkgs/container/uptime-pulse"><img src="https://img.shields.io/badge/Container_Image-~15.8_MB-brightgreen?logo=docker&logoColor=white" alt="Container Size"></a>
+    <img src="https://img.shields.io/badge/Memory-~11_MB_RSS-success" alt="RAM Usage">
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
+  </p>
+
+  <p>
+    <strong>English</strong> | <a href="README.id.md">Bahasa Indonesia</a>
+  </p>
 </div>
 
 ---
 
-## Highlights
+## 💡 Overview
 
-* **Ultra-Low Resource Usage:** Uses only ~11 MB RAM (RSS) and compiles to a single static binary (~5.5 MB) with all HTML, CSS, and JS embedded via `rust-embed`.
-* **Multi-Arch Support:** Fully supports **ARM64 (aarch64)** and **AMD64 (x86_64)**.
-* **Modern Clean UI:** Unified Grouped List status page (Linear/Vercel style), dark warm charcoal palette (`#202020` / `#282828`), audited light mode contrast, and responsive mobile view.
-* **Anti-False Alarm Engine:** Multi-packet ICMP ping (`-c 2`) with WAN jitter tolerance, staggered scheduling, and customizable fast-retries before declaring downtime.
-* **Custom Monitor Ordering:** Native HTML5 Drag & Drop reordering on desktop with responsive up/down touch buttons on mobile.
-* **Telegram Notifications:** Instant alerts with duration calculation and global timezone formatting (WIB, WITA, WIT, GMT, etc.).
-* **Flash Storage Safe:** SQLite WAL mode with 5000ms busy timeout, auto-pruning every 6 hours, and automatic WAL checkpoint truncation to minimize flash wear on routers.
-* **Security Hardened:** Built-in in-memory login rate-limiting (5 failed attempts / 5 mins), security headers (`nosniff`, `SAMEORIGIN`, `referrer-policy`), and minimum 8-character passwords.
+**UptimePulse** is an ultra-lightweight, drop-in alternative to resource-heavy Node.js-based monitoring tools like Uptime Kuma. Written completely in **Rust** using an asynchronous Tokio runtime and Axum web framework, UptimePulse runs with negligible CPU load and consumes only **~11 MB of RAM** under production workloads.
+
+Frontend web views (HTML, CSS, JS) are bundled directly into the executable using `rust-embed`, delivering a **single static binary** with zero external runtime dependencies.
 
 ---
 
-## Quick Start (Docker / Podman)
+## ✨ Features
 
-UptimePulse images are published to GitHub Container Registry (`ghcr.io`) for both `linux/amd64` and `linux/arm64`.
+- **Strict MVC Architecture:** Clean separation of concerns across `models`, `views`, and `controllers` in idiomatic Rust.
+- **Multi-Protocol Monitoring:** Supports **ICMP Ping**, **HTTP / HTTPS** (powered by pure-Rust `rustls`), and **TCP port** handshakes.
+- **Advanced Anti-False Alarm Engine:** Multi-packet ping (`-c 2`) with WAN jitter tolerance, customizable retries, and staggered scheduling to prevent thundering herd spikes.
+- **Linear/Vercel-Inspired UI:** Borderless Unified Grouped List status page, 90-bar fine micro-timeline, warm dark charcoal theme (`#202020` / `#282828`), and contrast-audited light mode.
+- **Interactive Monitor Reordering:** Native HTML5 Drag & Drop ordering on desktop with dedicated 6-dot grip handles, alongside responsive up/down touch arrow buttons on mobile devices.
+- **Flash Storage Safety:** SQLite with WAL mode, 5000ms busy timeout, automatic pruning every 6 hours, and automatic WAL checkpoints to protect router eMMC/NAND flash memory.
+- **Instant Telegram Alerts:** Automated incident logging, recovery duration tracking, and dynamic global timezone formatting (WIB, WITA, WIT, GMT, etc.).
+- **Security Hardened:** Built-in in-memory rate limiting (5 failed attempts / 5 mins), security headers (`nosniff`, `SAMEORIGIN`, `strict-origin-when-cross-origin`), and minimum 8-character password enforcement.
+- **Full Backup & Restore:** Export and import system state via structured JSON or download raw SQLite `.db` snapshots.
 
-### 1. One-Liner Run (Docker / Podman)
+---
+
+## 🚀 Quick Start (Docker & Podman)
+
+Multi-architecture container images supporting both **ARM64** and **AMD64** are automatically built and published to GitHub Container Registry (`ghcr.io`).
+
+### 1. One-Liner Command
 
 ```bash
 docker run -d \
@@ -36,11 +58,11 @@ docker run -d \
   ghcr.io/zidnyzd/uptime-pulse:latest
 ```
 
-> **Catatan Podman:** Ganti `docker` dengan `podman`. Volume `uptime-data` akan menyimpan file database `uptime.db` secara persisten.
+> **Note for Podman users:** Simply replace `docker` with `podman`. The container image is only **~15.8 MB**.
 
 ### 2. Docker Compose / Podman Compose
 
-Gunakan file `compose.yaml`:
+Use the provided `compose.yaml`:
 
 ```yaml
 services:
@@ -55,40 +77,48 @@ services:
       - UPTIME_PORT=3001
       - UPTIME_DB_PATH=/data/uptime.db
       - UPTIME_RETENTION_DAYS=90
-      # - ADMIN_PASSWORD=admin # Opsional: Override password awal admin
+      # - ADMIN_PASSWORD=admin # Optional: override initial default admin password
     volumes:
       - uptime-data:/data
     cap_add:
-      - NET_RAW # Diperlukan untuk socket ICMP ping
+      - NET_RAW # Required for non-root ICMP ping sockets
 
 volumes:
   uptime-data:
 ```
 
-Jalankan dengan:
+Start the service:
 ```bash
 docker compose up -d
 ```
 
-Buka peramban:
-- **Status Publik:** `http://localhost:3001`
-- **Panel Admin:** `http://localhost:3001/admin` (Kredensial default: `admin` / `admin`)
+Access the web interface:
+- **Public Status Page:** `http://localhost:3001`
+- **Admin Console:** `http://localhost:3001/admin` *(Default login: `admin` / `admin`)*
 
 ---
 
-## Deployment di STB OpenWrt (ARM64)
+## 📦 Deployment on STB / Single Board Computers (ARM64)
 
-### Opsi A: Container via Docker / Podman (Rekomendasi)
+### Option A: Container (Recommended)
 
-Jika STB OpenWrt HG680-P atau Armbian Anda sudah memiliki `docker` atau `podman`:
+On OpenWrt STB (e.g. FiberHome HG680-P, Amlogic S905X), Raspberry Pi, or Armbian:
+
 ```bash
 docker pull ghcr.io/zidnyzd/uptime-pulse:latest
-docker run -d --name uptime-pulse --restart unless-stopped --cap-add NET_RAW -p 3001:3001 -v /etc/uptime-pulse:/data ghcr.io/zidnyzd/uptime-pulse:latest
+docker run -d \
+  --name uptime-pulse \
+  --restart unless-stopped \
+  --cap-add NET_RAW \
+  -p 3001:3001 \
+  -v /etc/uptime-pulse:/data \
+  ghcr.io/zidnyzd/uptime-pulse:latest
 ```
 
-### Opsi B: Standalone Binary (Tanpa Container)
+### Option B: Standalone Static Binary (No Docker Required)
 
-Unduh binary static `uptime-pulse-linux-arm64` dari [Releases](../../releases), beri izin eksekusi, lalu jalankan sebagai service:
+Download the static `uptime-pulse-linux-arm64` binary from [GitHub Releases](../../releases):
+
 ```bash
 chmod +x uptime-pulse-linux-arm64
 ./uptime-pulse-linux-arm64 --port 3001 --db /etc/uptime.db --retention 90 &
@@ -96,41 +126,68 @@ chmod +x uptime-pulse-linux-arm64
 
 ---
 
-## Konfigurasi CLI & Environment Variables
+## ⚙️ Configuration & Environment Variables
 
-| Opsi CLI | Environment Variable | Default | Deskripsi |
+| CLI Flag | Environment Variable | Default | Description |
 |---|---|---|---|
-| `-h, --host` | `UPTIME_HOST` | `0.0.0.0` | Alamat host listen |
-| `-p, --port` | `UPTIME_PORT` | `3001` | Port web server |
-| `-d, --db` | `UPTIME_DB_PATH` | `uptime.db` | Jalur file database SQLite |
-| `-r, --retention`| `UPTIME_RETENTION_DAYS` | `90` | Batas hari retensi log riwayat probe |
-| `--password` | `ADMIN_PASSWORD` | `admin` | Password default akun admin jika belum ada |
+| `-h, --host` | `UPTIME_HOST` | `0.0.0.0` | Listening network interface address |
+| `-p, --port` | `UPTIME_PORT` | `3001` | Web server port |
+| `-d, --db` | `UPTIME_DB_PATH` | `uptime.db` | File path to SQLite database |
+| `-r, --retention` | `UPTIME_RETENTION_DAYS` | `90` | Number of days to retain probe history before auto-pruning |
+| `--password` | `ADMIN_PASSWORD` | `admin` | Initial admin password if not already configured in database |
 
 ---
 
-## Build Mandiri dari Sumber (Local Build)
+## 🛠️ Building from Source
 
-Prasyarat: Rust 1.85+ (Edition 2024).
+Requires Rust 1.85+ (Edition 2024).
 
 ```bash
 git clone https://github.com/zidnyzd/uptime-pulse.git
 cd uptime-pulse
 
-# Build binary rilis yang dioptimasi
+# Compile optimized release binary
 cargo build --release
 
-# Menjalankan binary
+# Run locally
 ./target/release/uptime-pulse --port 3001
 ```
 
-Build container lokal dengan Podman / Docker:
+Build local container image:
 ```bash
 podman build -t uptime-pulse:local .
 ```
 
 ---
 
-## Lisensi
+## 📂 Project Architecture
 
-Didistribusikan di bawah lisensi MIT.
-Dibuat oleh [Muhammad Zidny Ilhami](https://github.com/zidnyzd).
+```text
+uptime-pulse/
+├── Cargo.toml               # Tokio, Axum 0.8, Rusqlite, Rustls, Rust-Embed
+├── Dockerfile               # Multi-stage Alpine runtime (~15.8MB)
+├── compose.yaml             # Compose deployment file
+├── src/
+│   ├── main.rs              # App entry point, CLI config, Tokio runtime, graceful shutdown
+│   ├── config.rs            # CLI and environment variable parser
+│   ├── database.rs          # SQLite pool, WAL pragmas, automated migrations & pruning
+│   ├── prober.rs            # ICMP multi-packet ping, HTTP(S) prober, TCP handshake
+│   ├── engine.rs            # Async background scheduler, staggered startup, fast retries
+│   ├── models/              # Monitor, Heartbeat, Incident, Setting, User
+│   ├── controllers/         # Monitor, Public, Auth, Setting, Backup controllers
+│   ├── middlewares/         # Session auth, login rate limiter, security headers
+│   └── routes/              # Modular Axum routing table
+└── public/
+    ├── index.html           # Public status page view
+    ├── admin.html           # Admin management dashboard
+    ├── css/                 # Base variables, warm dark theme, public & admin stylesheets
+    └── js/                  # Real-time SSE feeds, drag & drop reorder, i18n support
+```
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License**. See [LICENSE](LICENSE) for details.
+
+Developed by [Muhammad Zidny Ilhami](https://github.com/zidnyzd).
