@@ -188,7 +188,7 @@ impl Heartbeat {
                     "empty".to_string()
                 } else if d.up == d.total {
                     "up".to_string()
-                } else if uptime_pct >= 95.0 {
+                } else if uptime_pct >= 75.0 {
                     "degraded".to_string()
                 } else {
                     "down".to_string()
@@ -276,7 +276,7 @@ impl Heartbeat {
                     "empty".to_string()
                 } else if d.up == d.total {
                     "up".to_string()
-                } else if uptime_pct >= 95.0 {
+                } else if uptime_pct >= 75.0 {
                     "degraded".to_string()
                 } else {
                     "down".to_string()

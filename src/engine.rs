@@ -79,9 +79,9 @@ pub fn start_scheduler(db: DbPool, event_tx: EventSender, retention_days: u32) {
                 let should_check = {
                     let mut tracker = last_checked.lock().await;
 
-                    // Fast retry: jika sedang gagal (1x atau 2x), re-check lebih cepat (10s) untuk konfirmasi
+                    // Fast retry: jika sedang gagal (1x atau 2x), re-check lebih cepat (15s) untuk konfirmasi
                     let effective_interval = if monitor.consecutive_fails > 0 && monitor.consecutive_fails < monitor.max_retries {
-                        10u64
+                        15u64
                     } else {
                         monitor.interval_sec as u64
                     };
@@ -96,9 +96,12 @@ pub fn start_scheduler(db: DbPool, event_tx: EventSender, retention_days: u32) {
                             }
                         }
                         None => {
-                            // Cek langsung pada putaran pertama
-                            tracker.insert(monitor.id, now);
-                            true
+                            // Stagger initial check saat startup agar 15+ monitor tidak menembak serentak di detik yang sama
+                            let interval = monitor.interval_sec.max(5) as u64;
+                            let stagger_offset = (monitor.id.abs() as u64 * 3) % interval;
+                            let initial_time = now - Duration::from_secs(interval.saturating_sub(stagger_offset));
+                            tracker.insert(monitor.id, initial_time);
+                            stagger_offset == 0
                         }
                     }
                 };

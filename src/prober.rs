@@ -141,14 +141,14 @@ async fn probe_ping(monitor_id: i64, target: &str, timeout_sec: i64) -> ProbeRes
         }
     };
 
-    let timeout_val = timeout_sec.clamp(1, 30).to_string();
+    let timeout_val = timeout_sec.clamp(1, 10).to_string();
     let start = Instant::now();
 
-    // Memanggil ping -c 1 -W <timeout> <host> via Tokio async process
+    // Memanggil ping -c 2 -W <timeout> <host> untuk toleransi fluktuasi jaringan
     let cmd_result = timeout(
-        Duration::from_secs((timeout_sec.max(1) + 2) as u64),
+        Duration::from_secs((timeout_sec.max(1) + 4) as u64),
         Command::new("ping")
-            .args(["-c", "1", "-W", &timeout_val, &host])
+            .args(["-c", "2", "-W", &timeout_val, &host])
             .output(),
     )
     .await;
@@ -171,7 +171,14 @@ async fn probe_ping(monitor_id: i64, target: &str, timeout_sec: i64) -> ProbeRes
                 }
             } else {
                 let err = if !stderr.trim().is_empty() {
-                    stderr.trim().to_string()
+                    let raw = stderr.trim();
+                    if raw.contains("Name or service not known")
+                        || raw.contains("Temporary failure in name resolution")
+                    {
+                        "DNS resolution failed".to_string()
+                    } else {
+                        raw.to_string()
+                    }
                 } else if stdout.contains("100% packet loss") || stdout.contains("100% loss") {
                     "100% packet loss".to_string()
                 } else if stdout.contains("Destination Host Unreachable") {
@@ -225,6 +232,21 @@ fn sanitize_ping_target(target: &str) -> Option<String> {
 
 // Mengambil angka latency (ms) dari baris output ping
 fn parse_ping_latency(stdout: &str, fallback_ms: f64) -> f64 {
+    // 1. Coba ambil rata-rata (avg) dari baris statistik summary rtt/round-trip
+    for line in stdout.lines() {
+        if line.contains("min/avg/max") || line.contains("rtt ") || line.contains("round-trip ") {
+            if let Some(eq_pos) = line.find('=') {
+                let parts: Vec<&str> = line[eq_pos + 1..].split('/').collect();
+                if parts.len() >= 2 {
+                    if let Ok(val) = parts[1].trim().parse::<f64>() {
+                        return (val * 10.0).round() / 10.0;
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Fallback: ambil baris time= pertama
     for line in stdout.lines() {
         if let Some(pos) = line.find("time=") {
             let part = &line[pos + 5..];
