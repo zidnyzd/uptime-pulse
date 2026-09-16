@@ -1545,3 +1545,134 @@
   color: #ffffff;
   border-color: #1f2328;
 }
+
+[data-theme="light"] .lang-switcher {
+  background: #eaeef2;
+  border-color: #d0d7de;
+}
+
+[data-theme="light"] .lang-btn {
+  color: #59636e;
+}
+
+[data-theme="light"] .lang-btn:hover {
+  color: #090d13;
+}
+
+[data-theme="light"] .lang-btn.active {
+  background: #ffffff;
+  color: #090d13;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .nav-link-btn.active {
+  border-color: #d0d7de;
+}
+
+[data-theme="light"] .nav-badge-pill {
+  background: #eaeef2;
+  color: #59636e;
+}
+
+[data-theme="light"] .sidebar-brand {
+  border-bottom-color: #d0d7de;
+}
+
+[data-theme="light"] .sidebar-bottom {
+  border-top-color: #d0d7de;
+}
+
+[data-theme="light"] .user-profile-card:hover {
+  background: #f6f8fa;
+  border-color: #b0b8c1;
+}
+
+[data-theme="light"] .user-profile-card.active {
+  background: #eaeef2;
+}
+
+[data-theme="light"] .user-profile-card:hover .btn-dropup-trigger {
+  color: #090d13;
+}
+
+[data-theme="light"] .dropup-user-name {
+  color: #090d13;
+}
+
+[data-theme="light"] .dropup-item.danger {
+  color: #dc2626;
+}
+
+[data-theme="light"] .dropup-item.danger:hover {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+[data-theme="light"] .mobile-menu-toggle {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+}
+
+[data-theme="light"] .kpi-card:hover {
+  border-color: #b0b8c1;
+  background: #ffffff;
+}
+
+[data-theme="light"] .search-input:focus {
+  border-color: #0969da;
+  background: #ffffff;
+}
+
+[data-theme="light"] .filter-pill:hover {
+  background: #eaeef2;
+  color: #090d13;
+}
+
+[data-theme="light"] .widget-card:hover {
+  border-color: #b0b8c1;
+  background: #ffffff;
+}
+
+[data-theme="light"] .widget-card.paused {
+  background: #fffbeb;
+  border-color: rgba(154, 103, 0, 0.45);
+}
+
+[data-theme="light"] .paused-badge {
+  background: rgba(154, 103, 0, 0.12);
+  color: #854d0e;
+  border-color: rgba(154, 103, 0, 0.35);
+}
+
+[data-theme="light"] .private-badge {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #d0d7de;
+}
+
+[data-theme="light"] .type-pill.tcp {
+  background: rgba(130, 80, 223, 0.12);
+  color: #8250df;
+}
+
+[data-theme="light"] .btn-icon:hover {
+  color: #090d13;
+  background: #f6f8fa;
+  border-color: #b0b8c1;
+}
+
+[data-theme="light"] .widget-footer {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .incident-row {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .incident-row-title {
+  color: #090d13;
+}
+
+[data-theme="light"] .empty-state svg {
+  stroke: rgba(0, 0, 0, 0.15);
+}

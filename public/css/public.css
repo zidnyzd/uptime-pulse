@@ -832,3 +832,71 @@
 [data-theme="light"] .footer-left {
   color: #64748b;
 }
+
+[data-theme="light"] .footer-right {
+  color: #64748b;
+}
+
+[data-theme="light"] .lang-switcher {
+  background: #eaeef2;
+  border-color: #d0d7de;
+}
+
+[data-theme="light"] .hero-status-wrap {
+  background: linear-gradient(90deg, rgba(26, 127, 55, 0.08) 0%, rgba(26, 127, 55, 0.01) 100%);
+  border-color: rgba(26, 127, 55, 0.3);
+}
+
+[data-theme="light"] .hero-status-wrap.degraded {
+  background: linear-gradient(90deg, rgba(154, 103, 0, 0.08) 0%, rgba(154, 103, 0, 0.01) 100%);
+  border-color: rgba(154, 103, 0, 0.35);
+}
+
+[data-theme="light"] .hero-status-wrap.outage {
+  background: linear-gradient(90deg, rgba(207, 34, 46, 0.07) 0%, rgba(207, 34, 46, 0.01) 100%);
+  border-color: rgba(207, 34, 46, 0.35);
+}
+
+[data-theme="light"] .service-uptime-val {
+  color: #090d13;
+}
+
+[data-theme="light"] .service-status-pill {
+  background: rgba(26, 127, 55, 0.12);
+}
+
+[data-theme="light"] .service-status-pill.down {
+  background: rgba(207, 34, 46, 0.12);
+}
+
+[data-theme="light"] .service-status-pill.paused {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+[data-theme="light"] .active-incident-card {
+  background: #fef2f2;
+  border-color: rgba(207, 34, 46, 0.3);
+}
+
+[data-theme="light"] .incident-service-badge {
+  color: #090d13;
+}
+
+[data-theme="light"] .incident-error-detail {
+  color: #475569;
+}
+
+[data-theme="light"] .incident-feed-item {
+  background: #ffffff;
+  border-color: #d0d7de;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .incident-feed-name {
+  color: #090d13;
+}
+
+[data-theme="light"] .incident-feed-err {
+  color: #475569;
+}
