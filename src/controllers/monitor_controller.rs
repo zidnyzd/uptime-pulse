@@ -26,6 +26,17 @@ pub async fn index(
     }
 }
 
+// GET /api/incidents - Riwayat insiden untuk konsol admin (SEMUA monitor,
+// termasuk yang privat/paused — beda dengan /api/public/summary yang terfilter)
+pub async fn incidents(
+    State(state): State<Arc<MonitorControllerState>>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    match crate::models::Incident::list_recent(&state.db, 100, false).await {
+        Ok(list) => Ok(Json(list)),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+    }
+}
+
 // GET /api/monitors/{id} - Mengambil detail monitor + riwayat heartbeat 24h
 pub async fn show(
     State(state): State<Arc<MonitorControllerState>>,

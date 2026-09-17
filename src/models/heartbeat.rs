@@ -74,6 +74,34 @@ pub struct PublicSystemSummary {
     pub branding: crate::models::BrandingSettings,
 }
 
+// Ambang toleransi warna bar timeline (dipakai bersama oleh bucket harian & per-jam).
+// Sengaja satu tempat agar admin dan publik tidak bisa berbeda perhitungannya.
+//
+// Rasional: sebelumnya "up" hanya bila 100% sempurna, sehingga SATU kegagalan mikro
+// (mis. 1 dari 777 check = 99.9%) mewarnai satu hari penuh jadi amber. Dengan
+// toleransi ini, hari dengan uptime >= 99% tetap hijau — sejalan dengan SLA yang
+// umum dipakai layanan hosting. Bar merah hanya untuk gangguan nyata.
+const BAR_UP_MIN_PCT: f64 = 99.0;    // >= 99%  -> hijau
+const BAR_DEGRADED_MIN_PCT: f64 = 75.0; // >= 75% -> amber, sisanya merah
+
+// Menentukan status warna satu bucket timeline dari jumlah check up vs total.
+fn bucket_status(total: i64, up: i64) -> String {
+    if total == 0 {
+        return "empty".to_string();
+    }
+    if up == total {
+        return "up".to_string();
+    }
+    let pct = (up as f64 / total as f64) * 100.0;
+    if pct >= BAR_UP_MIN_PCT {
+        "up".to_string()
+    } else if pct >= BAR_DEGRADED_MIN_PCT {
+        "degraded".to_string()
+    } else {
+        "down".to_string()
+    }
+}
+
 impl Heartbeat {
     // Mencatat hasil probe dan memperbarui status monitor di database
     // Mengembalikan tuple (status_string, consecutive_fails, max_retries)
@@ -121,13 +149,10 @@ impl Heartbeat {
             ],
         )?;
 
-        // Pruning berkala: Hapus riwayat yang lebih lama dari 30 hari agar flash router awet
-        conn.execute(
-            "DELETE FROM heartbeats 
-             WHERE monitor_id = ?1 AND checked_at < datetime('now', '-30 days', 'localtime')",
-            params![result.monitor_id],
-        )?;
-
+        // Catatan: pruning TIDAK dilakukan di sini. Menjalankan DELETE per-probe
+        // berarti ~23.000 query/hari yang hampir selalu menghapus 0 baris, dan
+        // angka hardcode di sini akan bertabrakan dengan `--retention` (worker
+        // prune 6 jam di engine.rs sudah menangani ini sesuai retention_days).
         Ok((status_str, new_fails, max_retries))
     }
 
@@ -184,15 +209,7 @@ impl Heartbeat {
                     100.0
                 };
 
-                let status = if d.total == 0 {
-                    "empty".to_string()
-                } else if d.up == d.total {
-                    "up".to_string()
-                } else if uptime_pct >= 75.0 {
-                    "degraded".to_string()
-                } else {
-                    "down".to_string()
-                };
+                let status = bucket_status(d.total, d.up);
 
                 buckets.push(BarBucket {
                     label,
@@ -272,15 +289,7 @@ impl Heartbeat {
                     100.0
                 };
 
-                let status = if d.total == 0 {
-                    "empty".to_string()
-                } else if d.up == d.total {
-                    "up".to_string()
-                } else if uptime_pct >= 75.0 {
-                    "degraded".to_string()
-                } else {
-                    "down".to_string()
-                };
+                let status = bucket_status(d.total, d.up);
 
                 buckets.push(BarBucket {
                     label,
@@ -432,8 +441,9 @@ impl Heartbeat {
             "operational".to_string()
         };
 
-        let active_incidents = crate::models::Incident::list_ongoing(db).await?;
-        let recent_incidents = crate::models::Incident::list_recent(db, 10).await?;
+        // Halaman publik: sembunyikan insiden dari monitor privat/paused
+        let active_incidents = crate::models::Incident::list_ongoing(db, true).await?;
+        let recent_incidents = crate::models::Incident::list_recent(db, 10, true).await?;
         let branding = crate::models::BrandingSettings::load(db)
             .await
             .unwrap_or_default();

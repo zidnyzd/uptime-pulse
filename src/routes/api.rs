@@ -57,6 +57,8 @@ pub fn build_api_router(
             get(monitor_controller::index).post(monitor_controller::store),
         )
         .route("/api/monitors/reorder", post(monitor_controller::reorder))
+        // Riwayat insiden versi admin: semua monitor, termasuk privat/paused
+        .route("/api/incidents", get(monitor_controller::incidents))
         .route(
             "/api/monitors/{id}",
             get(monitor_controller::show)

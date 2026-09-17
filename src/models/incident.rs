@@ -105,18 +105,23 @@ impl Incident {
         Ok(())
     }
 
-    // Mengambil daftar seluruh insiden yang sedang aktif berlangsung
-    pub async fn list_ongoing(db: &DbPool) -> Result<Vec<Incident>> {
+    // Mengambil daftar seluruh insiden yang sedang aktif berlangsung.
+    // `public_only = true` membatasi hasil ke monitor aktif & publik saja
+    // (dipakai halaman status publik). Konsol admin memakai `false` agar
+    // insiden monitor privat/paused tetap terlihat.
+    pub async fn list_ongoing(db: &DbPool, public_only: bool) -> Result<Vec<Incident>> {
         let conn = db.lock().await;
+        let public_flag: i32 = if public_only { 1 } else { 0 };
         let mut stmt = conn.prepare(
             "SELECT i.id, i.monitor_id, m.name, i.started_at, i.resolved_at, i.duration_sec, i.error_message
              FROM incidents i
              JOIN monitors m ON m.id = i.monitor_id
              WHERE i.resolved_at IS NULL
+               AND (?1 = 0 OR (m.is_active = 1 AND m.is_public = 1))
              ORDER BY i.id DESC"
         )?;
 
-        let rows = stmt.query_map([], |row| {
+        let rows = stmt.query_map([public_flag], |row| {
             Ok(Incident {
                 id: row.get(0)?,
                 monitor_id: row.get(1)?,
@@ -136,18 +141,21 @@ impl Incident {
         Ok(list)
     }
 
-    // Mengambil riwayat insiden terbaru untuk publik
-    pub async fn list_recent(db: &DbPool, limit: i64) -> Result<Vec<Incident>> {
+    // Mengambil riwayat insiden terbaru.
+    // `public_only = true` -> hanya monitor aktif & publik (halaman status publik).
+    pub async fn list_recent(db: &DbPool, limit: i64, public_only: bool) -> Result<Vec<Incident>> {
         let conn = db.lock().await;
+        let public_flag: i32 = if public_only { 1 } else { 0 };
         let mut stmt = conn.prepare(
             "SELECT i.id, i.monitor_id, m.name, i.started_at, i.resolved_at, i.duration_sec, i.error_message
              FROM incidents i
              JOIN monitors m ON m.id = i.monitor_id
+             WHERE (?2 = 0 OR (m.is_active = 1 AND m.is_public = 1))
              ORDER BY i.id DESC
              LIMIT ?1"
         )?;
 
-        let rows = stmt.query_map([limit], |row| {
+        let rows = stmt.query_map(params![limit, public_flag], |row| {
             let resolved: Option<String> = row.get(4)?;
             let is_ongoing = resolved.is_none();
             Ok(Incident {

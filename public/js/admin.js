@@ -1310,9 +1310,17 @@ function formatTimeWithTz(dateStr) {
   return formatCustomDate(dateStr, configuredTimezone, configuredTimeFormat, configuredDateFormat);
 }
 
+// Escape untuk konteks HTML teks MAUPUN nilai atribut (title="...", value="...").
+// Kutip ikut di-escape karena fungsi ini dipakai di dalam atribut — tanpa ini,
+// nama monitor bertanda kutip bisa keluar dari atribut dan merusak markup.
 function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // --- Telegram Notification Settings ---
@@ -1621,10 +1629,11 @@ async function switchView(viewName) {
 async function loadIncidents() {
   const feed = document.getElementById('incidents-feed');
   try {
-    const res = await fetch('/api/public/summary');
+    // Endpoint admin: menampilkan insiden SEMUA monitor (termasuk privat/paused).
+    // /api/public/summary kini terfilter hanya monitor publik.
+    const res = await apiFetch('/api/incidents');
     if (!res.ok) return;
-    const data = await res.json();
-    const incs = data.recent_incidents || [];
+    const incs = await res.json();
 
     if (incs.length === 0) {
       feed.innerHTML = `

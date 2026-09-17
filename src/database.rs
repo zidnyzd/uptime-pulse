@@ -87,6 +87,9 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
          );
 
          CREATE INDEX IF NOT EXISTS idx_hb_mon_time ON heartbeats(monitor_id, checked_at DESC);
+         -- Index terpisah untuk prune global (DELETE ... WHERE checked_at < ?) yang
+         -- tidak menyebut monitor_id, agar tidak full-table-scan di STB low-power.
+         CREATE INDEX IF NOT EXISTS idx_hb_time ON heartbeats(checked_at);
          CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
          CREATE INDEX IF NOT EXISTS idx_incidents_mon ON incidents(monitor_id, started_at DESC);
          "

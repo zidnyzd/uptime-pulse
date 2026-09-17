@@ -12,7 +12,6 @@ const publicI18n = {
     hero_empty_sub: 'Tambahkan monitor di panel Admin untuk mulai memantau.',
     kpi_uptime: 'Uptime Sistem 24 Jam',
     kpi_services: 'Layanan Operasional',
-    kpi_latency: 'Rata-rata Latensi',
     section_services: 'Layanan & Infrastruktur',
     section_history_90d: 'Riwayat 90 hari',
     section_history_30d: 'Riwayat 30 hari',
@@ -37,7 +36,6 @@ const publicI18n = {
     hero_empty_sub: 'Configure monitors in the Admin console to begin tracking.',
     kpi_uptime: '24h System Uptime',
     kpi_services: 'Services Operational',
-    kpi_latency: 'Average Latency',
     section_services: 'Services & Infrastructure',
     section_history_90d: '90 days history',
     section_history_30d: '30 days history',
@@ -102,11 +100,19 @@ function renderPublicView(data) {
   const heroSubtitle = document.getElementById('hero-subtitle');
   const heroSvg = document.getElementById('hero-badge-svg');
 
+  // Hero 3-state: operational (hijau) / degraded - gangguan sebagian (amber) / outage - semua down (merah).
+  // Keputusan memakai `overall_status` dari backend sebagai satu sumber kebenaran
+  // (sebelumnya field ini dikirim tapi menganggur, dan CSS `.degraded` tak pernah dipakai).
   if (data.incident_services > 0) {
-    heroWrap.className = 'hero-status-wrap outage';
-    heroTitle.textContent = currentPublicLang === 'id' 
-      ? `${data.incident_services} Layanan Mengalami Gangguan` 
-      : `${data.incident_services} Service Outage${data.incident_services > 1 ? 's' : ''} Detected`;
+    if (data.overall_status === 'outage') {
+      heroWrap.className = 'hero-status-wrap outage';
+      heroTitle.textContent = t.hero_outage_title;
+    } else {
+      heroWrap.className = 'hero-status-wrap degraded';
+      heroTitle.textContent = currentPublicLang === 'id'
+        ? `${data.incident_services} Layanan Mengalami Gangguan`
+        : `${data.incident_services} Service Outage${data.incident_services > 1 ? 's' : ''} Detected`;
+    }
     heroSubtitle.textContent = t.hero_outage_sub;
     heroSvg.innerHTML = `
       <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -298,13 +304,15 @@ function renderPublicView(data) {
   }
 
   // Update timestamp di footer / bottom bar
-  const now = new Date();
-  const timeStr = now.toTimeString().split(' ')[0];
   const updatedEl = document.getElementById('public-last-updated');
   if (updatedEl) {
     const label = currentPublicLang === 'id' ? 'Data terakhir diambil' : 'Last updated';
     const tz = publicTimezone || 'Asia/Jakarta';
     const abbr = getTimezoneAbbr(tz);
+    // Jam HARUS dikonversi ke timezone server. Sebelumnya memakai jam perangkat
+    // pengunjung lalu menempel label timezone server — pengunjung di luar WIB
+    // melihat jam lokalnya sendiri berlabel "WIB" (meleset 7 jam utk New York).
+    const timeStr = formatNowWithTz(tz, publicTimeFormat);
     updatedEl.textContent = `${label}: ${timeStr} ${abbr}`;
   }
 }
@@ -400,14 +408,74 @@ function formatTimeWithTz(dateStr) {
   return formatCustomDate(dateStr, publicTimezone, publicTimeFormat, publicDateFormat);
 }
 
+// Jam saat ini di timezone server (bukan timezone perangkat pengunjung).
+// Dipakai untuk footer "Last updated", yang sebelumnya memakai jam browser
+// lalu menempel label timezone server sehingga meleset utk pengunjung non-WIB.
+// Output sengaja disusun manual (bukan langsung dari Intl) agar format 12h
+// konsisten dengan formatCustomDate: "HH:MM:SS PM" (huruf besar + spasi).
+function formatNowWithTz(tz = 'Asia/Jakarta', timeFormat = '24h') {
+  const now = new Date();
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23', // paksa 00-23 (hindari "24:00" di tengah malam)
+    }).formatToParts(now);
+
+    const get = (type) => parts.find((p) => p.type === type)?.value || '00';
+    const min = get('minute');
+    const sec = get('second');
+    let hour = get('hour');
+
+    if (timeFormat === '12h') {
+      let hNum = parseInt(hour, 10);
+      const period = hNum >= 12 ? 'PM' : 'AM';
+      hNum = hNum % 12;
+      if (hNum === 0) hNum = 12;
+      const hStr = hNum < 10 ? `0${hNum}` : `${hNum}`;
+      return `${hStr}:${min}:${sec} ${period}`;
+    }
+
+    return `${hour}:${min}:${sec}`;
+  } catch (e) {
+    // Fallback: timezone tidak dikenal browser -> pakai jam lokal perangkat
+    return now.toTimeString().split(' ')[0];
+  }
+}
+
+// Escape untuk konteks HTML teks MAUPUN nilai atribut (title="...", value="...").
+// Kutip ikut di-escape karena fungsi ini dipakai di dalam atribut — tanpa ini,
+// nama monitor bertanda kutip bisa keluar dari atribut dan merusak markup.
 function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Inisialisasi SSE terkendali
 let publicSse = null;
 let publicReconnectTimer = null;
+let publicRefetchTimer = null;
+
+// Refetch ringkasan di-throttle. Event SSE datang dari setiap probe (16 monitor /
+// 60s = ~1 event tiap 3,75 detik); tanpa throttle tiap event memicu satu fetch
+// penuh, dan backend menjalankan ~32 query berurutan di bawah satu koneksi SQLite.
+// Semua event dalam jendela ini cukup diwakili satu refetch.
+const PUBLIC_REFETCH_MIN_INTERVAL_MS = 10000;
+
+function schedulePublicRefetch() {
+  if (publicRefetchTimer) return; // sudah ada refetch terjadwal -> cukup
+  publicRefetchTimer = setTimeout(() => {
+    publicRefetchTimer = null;
+    loadPublicData();
+  }, PUBLIC_REFETCH_MIN_INTERVAL_MS);
+}
 
 function initPublicSSE() {
   if (publicSse) {
@@ -422,8 +490,8 @@ function initPublicSSE() {
   try {
     publicSse = new EventSource('/api/events');
     publicSse.onmessage = () => {
-      // Reload ringkasan saat ada event baru
-      loadPublicData();
+      // Throttle: banyak event dalam 10 detik -> satu refetch saja
+      schedulePublicRefetch();
     };
     publicSse.onerror = () => {
       if (publicSse) {
