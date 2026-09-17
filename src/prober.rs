@@ -4,17 +4,28 @@ use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 use crate::models::ProbeResult;
 
-// Dispatcher utama pengecekan target berdasarkan tipe protokol yang dipilih
-pub async fn probe(
+// Konfigurasi request HTTP kustom (method, header, body).
+// Dipakai agar bisa memantau endpoint non-GET dan API yang butuh autentikasi.
+#[derive(Debug, Clone, Default)]
+pub struct HttpRequestConfig {
+    pub method: String,
+    pub headers: String,
+    pub body: String,
+}
+
+// Dispatcher dengan konfigurasi request HTTP (method/headers/body).
+// Tipe tcp/ping mengabaikan konfigurasi ini.
+pub async fn probe_with_config(
     monitor_id: i64,
     monitor_type: &str,
     target: &str,
     timeout_sec: i64,
+    http_cfg: &HttpRequestConfig,
 ) -> ProbeResult {
     let timeout_duration = Duration::from_secs(timeout_sec.max(1) as u64);
 
     match monitor_type {
-        "http" | "https" => probe_http(monitor_id, target, timeout_duration).await,
+        "http" | "https" => probe_http(monitor_id, target, timeout_duration, http_cfg).await,
         "tcp" => probe_tcp(monitor_id, target, timeout_duration).await,
         "ping" | "icmp" => probe_ping(monitor_id, target, timeout_sec).await,
         _ => ProbeResult {
@@ -27,8 +38,38 @@ pub async fn probe(
     }
 }
 
-// Melakukan HTTP/HTTPS GET request dan mengukur waktu respons (latency)
-async fn probe_http(monitor_id: i64, target: &str, timeout_duration: Duration) -> ProbeResult {
+/// Mengurai header kustom dari format teks "Nama: Nilai" (satu per baris).
+/// Baris kosong dan baris tanpa ':' diabaikan. Nama header divalidasi agar
+/// tidak bisa menyuntikkan karakter ilegal ke protokol HTTP.
+fn parse_headers(raw: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    for line in raw.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some(pos) = line.find(':') {
+            let name = line[..pos].trim().to_string();
+            let value = line[pos + 1..].trim().to_string();
+            // Nama header hanya boleh token HTTP valid; tolak newline/CR (header injection).
+            let valid_name = !name.is_empty()
+                && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+            let valid_value = !value.contains('\r') && !value.contains('\n');
+            if valid_name && valid_value {
+                out.push((name, value));
+            }
+        }
+    }
+    out
+}
+
+// Melakukan HTTP request (method dapat dikonfigurasi) dan mengukur waktu respons
+async fn probe_http(
+    monitor_id: i64,
+    target: &str,
+    timeout_duration: Duration,
+    cfg: &HttpRequestConfig,
+) -> ProbeResult {
     let url = if !target.starts_with("http://") && !target.starts_with("https://") {
         format!("https://{}", target)
     } else {
@@ -53,9 +94,41 @@ async fn probe_http(monitor_id: i64, target: &str, timeout_duration: Duration) -
         }
     };
 
+    // Bangun request sesuai method yang dikonfigurasi
+    let method_upper = cfg.method.trim().to_ascii_uppercase();
+    let method = match method_upper.as_str() {
+        "POST" => reqwest::Method::POST,
+        "PUT" => reqwest::Method::PUT,
+        "PATCH" => reqwest::Method::PATCH,
+        "DELETE" => reqwest::Method::DELETE,
+        "HEAD" => reqwest::Method::HEAD,
+        "OPTIONS" => reqwest::Method::OPTIONS,
+        _ => reqwest::Method::GET,
+    };
+
+    let mut req = client.request(method, &url);
+
+    // Sisipkan header kustom (mis. Authorization, X-Api-Key)
+    let headers = parse_headers(&cfg.headers);
+    for (name, value) in &headers {
+        req = req.header(name.as_str(), value.as_str());
+    }
+
+    // Sisipkan body bila diisi dan method memungkinkan.
+    // GET/HEAD secara umum tidak berbody; tetap dikirim bila user mengisinya
+    // karena beberapa API non-standar memanfaatkannya.
+    if !cfg.body.trim().is_empty() {
+        // Set Content-Type default JSON hanya bila user belum menentukan sendiri
+        let has_ct = headers.iter().any(|(n, _)| n.eq_ignore_ascii_case("content-type"));
+        if !has_ct {
+            req = req.header("Content-Type", "application/json");
+        }
+        req = req.body(cfg.body.clone());
+    }
+
     // Instant::now() menggunakan monotonic clock sistem yang akurat dan tidak terpengaruh pergeseran jam NTP
     let start = Instant::now();
-    match client.get(&url).send().await {
+    match req.send().await {
         Ok(response) => {
             let status = response.status();
             let latency = start.elapsed().as_secs_f64() * 1000.0;

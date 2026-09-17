@@ -115,6 +115,18 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
         let _ = conn.execute("UPDATE monitors SET sort_order = id", []);
     }
 
+    // Migrasi kolom HTTP request kustom (method, headers, body) jika belum ada.
+    // Memungkinkan pemantauan endpoint non-GET dan API yang butuh autentikasi.
+    // CATATAN KEAMANAN: headers/body dapat memuat kredensial (API key/token).
+    // Nilai ini HANYA boleh keluar lewat endpoint admin yang terautentikasi —
+    // jangan pernah sertakan di /api/public/summary atau payload publik lainnya.
+    let has_method = conn.prepare("SELECT method FROM monitors LIMIT 1").is_ok();
+    if !has_method {
+        let _ = conn.execute("ALTER TABLE monitors ADD COLUMN method TEXT NOT NULL DEFAULT 'GET'", []);
+        let _ = conn.execute("ALTER TABLE monitors ADD COLUMN headers TEXT NOT NULL DEFAULT ''", []);
+        let _ = conn.execute("ALTER TABLE monitors ADD COLUMN body TEXT NOT NULL DEFAULT ''", []);
+    }
+
     Ok(Arc::new(Mutex::new(conn)))
 }
 

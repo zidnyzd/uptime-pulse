@@ -738,6 +738,40 @@
             Tampilkan di Halaman Status Publik (Visible to Public)
           </label>
         </div>
+
+        <!-- Konfigurasi HTTP request lanjutan (hanya untuk tipe HTTP/HTTPS) -->
+        <div id="m-http-advanced" style="display: none;">
+          <div class="form-row">
+            <div class="form-group" style="flex: 1;">
+              <label title="Method HTTP yang dipakai saat memeriksa">Request Method</label>
+              <select class="form-control" id="m-method">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="PATCH">PATCH</option>
+                <option value="DELETE">DELETE</option>
+                <option value="HEAD">HEAD</option>
+                <option value="OPTIONS">OPTIONS</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label title="Batas waktu tunggu respons">Timeout (sec)</label>
+              <input type="number" class="form-control" id="m-timeout" value="10" min="1" max="60">
+            </div>
+          </div>
+          <div class="form-group">
+            <label title="Satu header per baris, format Nama: Nilai">Custom Headers <span style="color: var(--text-muted); font-weight: 400;">(opsional)</span></label>
+            <textarea class="form-control" id="m-headers" rows="2" placeholder="Authorization: Bearer rahasia-token&#10;X-Api-Key: kunci-anda" style="font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
+          </div>
+          <div class="form-group">
+            <label title="Body request, umumnya JSON">Request Body <span style="color: var(--text-muted); font-weight: 400;">(opsional)</span></label>
+            <textarea class="form-control" id="m-body" rows="2" placeholder='{"key": "value"}' style="font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
+          </div>
+          <div class="form-tip-box" style="border-color: rgba(234, 179, 8, 0.35);">
+            <strong>🔐 Kredensial:</strong> Header &amp; Body bisa memuat token/API key. Nilainya hanya tampil di konsol admin ini dan tidak pernah dikirim ke halaman status publik.
+          </div>
+        </div>
+
         <div class="modal-footer">
           <button type="button" class="btn" onclick="closeAddModal()">Cancel</button>
           <button type="submit" class="btn btn-primary">Save Monitor</button>
@@ -792,6 +826,40 @@
             Tampilkan di Halaman Status Publik (Visible to Public)
           </label>
         </div>
+
+        <!-- Konfigurasi HTTP request lanjutan (hanya untuk tipe HTTP/HTTPS) -->
+        <div id="edit-http-advanced" style="display: none;">
+          <div class="form-row">
+            <div class="form-group" style="flex: 1;">
+              <label title="Method HTTP yang dipakai saat memeriksa">Request Method</label>
+              <select class="form-control" id="edit-method">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="PATCH">PATCH</option>
+                <option value="DELETE">DELETE</option>
+                <option value="HEAD">HEAD</option>
+                <option value="OPTIONS">OPTIONS</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label title="Batas waktu tunggu respons">Timeout (sec)</label>
+              <input type="number" class="form-control" id="edit-timeout" min="1" max="60">
+            </div>
+          </div>
+          <div class="form-group">
+            <label title="Satu header per baris, format Nama: Nilai">Custom Headers <span style="color: var(--text-muted); font-weight: 400;">(opsional)</span></label>
+            <textarea class="form-control" id="edit-headers" rows="2" placeholder="Authorization: Bearer rahasia-token&#10;X-Api-Key: kunci-anda" style="font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
+          </div>
+          <div class="form-group">
+            <label title="Body request, umumnya JSON">Request Body <span style="color: var(--text-muted); font-weight: 400;">(opsional)</span></label>
+            <textarea class="form-control" id="edit-body" rows="2" placeholder='{"key": "value"}' style="font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
+          </div>
+          <div class="form-tip-box" style="border-color: rgba(234, 179, 8, 0.35);">
+            <strong>🔐 Kredensial:</strong> Header &amp; Body bisa memuat token/API key. Nilainya hanya tampil di konsol admin ini dan tidak pernah dikirim ke halaman status publik.
+          </div>
+        </div>
+
         <div class="modal-footer">
           <button type="button" class="btn" onclick="closeEditModal()">Cancel</button>
           <button type="submit" class="btn btn-primary" id="btn-edit-submit">Update Monitor</button>

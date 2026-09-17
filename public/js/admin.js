@@ -991,6 +991,7 @@ async function resetStats(id) {
 
 function openAddModal() {
   document.getElementById('add-modal').style.display = 'flex';
+  handleTypeChange();
   document.getElementById('m-name').focus();
 }
 
@@ -1003,6 +1004,7 @@ function handleTypeChange() {
   const type = document.getElementById('m-type').value;
   const targetInput = document.getElementById('m-target');
   const targetLabel = document.getElementById('target-label');
+  const advanced = document.getElementById('m-http-advanced');
   if (type === 'tcp') {
     targetLabel.textContent = 'Target Host & Port';
     targetInput.placeholder = '192.168.1.1:80 or example.com:22';
@@ -1013,6 +1015,8 @@ function handleTypeChange() {
     targetLabel.textContent = 'Target URL';
     targetInput.placeholder = 'https://example.com';
   }
+  // Field method/headers/body hanya relevan untuk HTTP/HTTPS
+  if (advanced) advanced.style.display = (type === 'http') ? 'block' : 'none';
 }
 
 async function handleCreateMonitor(e) {
@@ -1022,9 +1026,12 @@ async function handleCreateMonitor(e) {
     monitor_type: document.getElementById('m-type').value,
     target: document.getElementById('m-target').value,
     interval_sec: parseInt(document.getElementById('m-interval').value) || 60,
-    timeout_sec: 10,
+    timeout_sec: parseInt(document.getElementById('m-timeout').value) || 10,
     max_retries: parseInt(document.getElementById('m-retries').value) || 3,
     is_public: document.getElementById('m-public').checked,
+    method: document.getElementById('m-method').value || 'GET',
+    headers: document.getElementById('m-headers').value || '',
+    body: document.getElementById('m-body').value || '',
   };
 
   try {
@@ -1059,6 +1066,11 @@ function openEditModal(id) {
   document.getElementById('edit-target').value = m.target;
   document.getElementById('edit-retries').value = m.max_retries || 3;
   document.getElementById('edit-public').checked = m.is_public !== false;
+  // Konfigurasi request HTTP (nilai saat ini dimuat agar tidak terhapus saat menyimpan)
+  document.getElementById('edit-timeout').value = m.timeout_sec || 10;
+  document.getElementById('edit-method').value = m.method || 'GET';
+  document.getElementById('edit-headers').value = m.headers || '';
+  document.getElementById('edit-body').value = m.body || '';
 
   handleEditTypeChange();
   document.getElementById('edit-modal').style.display = 'flex';
@@ -1072,6 +1084,7 @@ function handleEditTypeChange() {
   const type = document.getElementById('edit-type').value;
   const targetLabel = document.getElementById('edit-target-label');
   const targetInput = document.getElementById('edit-target');
+  const advanced = document.getElementById('edit-http-advanced');
 
   if (type === 'tcp') {
     targetLabel.textContent = 'Target Host:Port';
@@ -1083,6 +1096,8 @@ function handleEditTypeChange() {
     targetLabel.textContent = 'Target URL';
     targetInput.placeholder = 'https://example.com';
   }
+  // Field method/headers/body hanya relevan untuk HTTP/HTTPS
+  if (advanced) advanced.style.display = (type === 'http') ? 'block' : 'none';
 }
 
 async function handleUpdateMonitor(e) {
@@ -1093,9 +1108,12 @@ async function handleUpdateMonitor(e) {
     monitor_type: document.getElementById('edit-type').value,
     target: document.getElementById('edit-target').value,
     interval_sec: parseInt(document.getElementById('edit-interval').value) || 60,
-    timeout_sec: 10,
+    timeout_sec: parseInt(document.getElementById('edit-timeout').value) || 10,
     max_retries: parseInt(document.getElementById('edit-retries').value) || 3,
     is_public: document.getElementById('edit-public').checked,
+    method: document.getElementById('edit-method').value || 'GET',
+    headers: document.getElementById('edit-headers').value || '',
+    body: document.getElementById('edit-body').value || '',
   };
 
   const btn = document.getElementById('btn-edit-submit');

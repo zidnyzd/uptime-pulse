@@ -110,8 +110,18 @@ pub fn start_scheduler(db: DbPool, event_tx: EventSender, retention_days: u32) {
                 if should_check {
                     let db_task = db.clone();
                     let tx_task = event_tx.clone();
+                    // Salin konfigurasi request agar bisa dipindah ke task (monitor tidak 'static)
+                    let http_cfg = prober::HttpRequestConfig {
+                        method: monitor.method.clone(),
+                        headers: monitor.headers.clone(),
+                        body: monitor.body.clone(),
+                    };
+                    let m_type = monitor.monitor_type.clone();
+                    let m_target = monitor.target.clone();
+                    let m_timeout = monitor.timeout_sec;
+                    let m_id = monitor.id;
                     tokio::spawn(async move {
-                        run_probe_and_record(&db_task, &tx_task, monitor.id, &monitor.monitor_type, &monitor.target, monitor.timeout_sec).await;
+                        run_probe_and_record_cfg(&db_task, &tx_task, m_id, &m_type, &m_target, m_timeout, &http_cfg).await;
                     });
                 }
             }
@@ -119,16 +129,18 @@ pub fn start_scheduler(db: DbPool, event_tx: EventSender, retention_days: u32) {
     });
 }
 
-// Menjalankan satu putaran probe, menyimpan rekaman ke SQLite, dan menyiarkan hasil ke SSE
-pub async fn run_probe_and_record(
+// Varian dengan konfigurasi request HTTP (method/headers/body).
+// Dipakai scheduler & controller agar monitor HTTP bisa non-GET / ber-autentikasi.
+pub async fn run_probe_and_record_cfg(
     db: &DbPool,
     tx: &EventSender,
     monitor_id: i64,
     monitor_type: &str,
     target: &str,
     timeout_sec: i64,
+    http_cfg: &prober::HttpRequestConfig,
 ) -> ProbeResult {
-    let result = prober::probe(monitor_id, monitor_type, target, timeout_sec).await;
+    let result = prober::probe_with_config(monitor_id, monitor_type, target, timeout_sec, http_cfg).await;
 
     let (status_str, consecutive_fails, max_retries) = match Heartbeat::record(db, &result).await {
         Ok(res) => res,

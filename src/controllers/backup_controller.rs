@@ -43,6 +43,15 @@ pub struct BackupMonitorItem {
     pub is_active: bool,
     #[serde(default)]
     pub sort_order: Option<i64>,
+    // Konfigurasi request HTTP. `#[serde(default)]` menjaga kompatibilitas
+    // dengan file backup lama yang belum memuat field ini.
+    // PERINGATAN: field ini dapat memuat kredensial — file backup harus dijaga.
+    #[serde(default = "default_item_method")]
+    pub method: String,
+    #[serde(default)]
+    pub headers: String,
+    #[serde(default)]
+    pub body: String,
 }
 
 fn default_item_retries() -> Option<i64> {
@@ -51,6 +60,10 @@ fn default_item_retries() -> Option<i64> {
 
 fn default_item_is_public() -> Option<bool> {
     Some(true)
+}
+
+fn default_item_method() -> String {
+    "GET".to_string()
 }
 
 #[derive(Debug, Deserialize)]
@@ -84,6 +97,9 @@ pub async fn export_json(
             is_public: Some(m.is_public),
             is_active: m.is_active,
             sort_order: Some(m.sort_order),
+            method: m.method,
+            headers: m.headers,
+            body: m.body,
         })
         .collect();
 
@@ -213,11 +229,13 @@ pub async fn restore_json(
             let is_act = if m.is_active { 1 } else { 0 };
             let is_pub = if m.is_public.unwrap_or(true) { 1 } else { 0 };
             let sort_order = m.sort_order.unwrap_or(imported_count as i64);
+            // Normalisasi method agar nilai tak dikenal dari backup lama tidak merusak probe
+            let method = crate::models::monitor::normalize_method(&m.method);
 
             tx.execute(
-                "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, sort_order)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8, 'pending', ?9)",
-                params![m.name, m.monitor_type, m.target, interval, timeout, max_retries, is_act, is_pub, sort_order],
+                "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, sort_order, method, headers, body)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8, 'pending', ?9, ?10, ?11, ?12)",
+                params![m.name, m.monitor_type, m.target, interval, timeout, max_retries, is_act, is_pub, sort_order, method, m.headers, m.body],
             )
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))))?;
 

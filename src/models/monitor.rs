@@ -20,6 +20,12 @@ pub struct Monitor {
     pub last_check_at: Option<String>,
     pub created_at: String,
     pub sort_order: i64,
+    // Konfigurasi request HTTP kustom (hanya berlaku untuk tipe http/https).
+    // PERINGATAN: `headers` dan `body` dapat memuat kredensial (API key/token).
+    // Struct ini hanya boleh diserialisasi pada endpoint admin terautentikasi.
+    pub method: String,       // GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS
+    pub headers: String,      // Satu header per baris, format "Nama: Nilai"
+    pub body: String,         // Body request (untuk method yang mendukung)
 }
 
 // DTO untuk validasi payload input pembuatan monitor baru
@@ -36,6 +42,12 @@ pub struct CreateMonitorInput {
     pub max_retries: i64,
     #[serde(default = "default_is_public")]
     pub is_public: bool,
+    #[serde(default = "default_method")]
+    pub method: String,
+    #[serde(default)]
+    pub headers: String,
+    #[serde(default)]
+    pub body: String,
 }
 
 // DTO untuk pembaruan monitor yang sudah ada
@@ -50,19 +62,41 @@ pub struct UpdateMonitorInput {
     pub max_retries: i64,
     #[serde(default = "default_is_public")]
     pub is_public: bool,
+    #[serde(default = "default_method")]
+    pub method: String,
+    #[serde(default)]
+    pub headers: String,
+    #[serde(default)]
+    pub body: String,
 }
 
 fn default_interval() -> i64 { 60 }
 fn default_timeout() -> i64 { 10 }
 fn default_max_retries() -> i64 { 3 }
 fn default_is_public() -> bool { true }
+fn default_method() -> String { "GET".to_string() }
+
+/// Menormalkan method HTTP ke bentuk kanonik. Method tak dikenal jatuh ke GET
+/// supaya data lama/typo tidak membuat probe gagal total.
+pub fn normalize_method(m: &str) -> String {
+    match m.trim().to_ascii_uppercase().as_str() {
+        "POST" => "POST",
+        "PUT" => "PUT",
+        "PATCH" => "PATCH",
+        "DELETE" => "DELETE",
+        "HEAD" => "HEAD",
+        "OPTIONS" => "OPTIONS",
+        _ => "GET",
+    }
+    .to_string()
+}
 
 impl Monitor {
     // Mengambil seluruh target monitor dari database
     pub async fn all(db: &DbPool) -> Result<Vec<Monitor>> {
         let conn = db.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at, sort_order
+            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at, sort_order, method, headers, body
              FROM monitors ORDER BY sort_order ASC, id ASC"
         )?;
 
@@ -83,6 +117,9 @@ impl Monitor {
                 last_check_at: row.get(12)?,
                 created_at: row.get(13)?,
                 sort_order: row.get(14)?,
+                method: row.get(15)?,
+                headers: row.get(16)?,
+                body: row.get(17)?,
             })
         })?;
 
@@ -97,7 +134,7 @@ impl Monitor {
     pub async fn find(db: &DbPool, id: i64) -> Result<Option<Monitor>> {
         let conn = db.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at, sort_order
+            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at, sort_order, method, headers, body
              FROM monitors WHERE id = ?1"
         )?;
 
@@ -118,6 +155,9 @@ impl Monitor {
                 last_check_at: row.get(12)?,
                 created_at: row.get(13)?,
                 sort_order: row.get(14)?,
+                method: row.get(15)?,
+                headers: row.get(16)?,
+                body: row.get(17)?,
             })
         });
 
@@ -133,10 +173,11 @@ impl Monitor {
         let conn = db.lock().await;
         let max_retries = input.max_retries.clamp(1, 10);
         let is_public_int = if input.is_public { 1 } else { 0 };
+        let method = normalize_method(&input.method);
         conn.execute(
-            "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_public, sort_order)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM monitors))",
-            params![input.name, input.monitor_type, input.target, input.interval_sec, input.timeout_sec, max_retries, is_public_int],
+            "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_public, sort_order, method, headers, body)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM monitors), ?8, ?9, ?10)",
+            params![input.name, input.monitor_type, input.target, input.interval_sec, input.timeout_sec, max_retries, is_public_int, method, input.headers, input.body],
         )?;
         Ok(conn.last_insert_rowid())
     }
@@ -203,18 +244,21 @@ impl Monitor {
     }
 
     // Memperbarui konfigurasi monitor yang sudah ada
+    // Catatan: headers/body yang dikirim kosong berarti dihapus (bukan dipertahankan),
+    // karena form admin selalu memuat nilai saat ini terlebih dahulu.
     pub async fn update(db: &DbPool, id: i64, input: &UpdateMonitorInput) -> Result<bool> {
         let conn = db.lock().await;
         let max_retries = input.max_retries.clamp(1, 10);
         let interval_sec = input.interval_sec.max(5);
         let timeout_sec = input.timeout_sec.max(1);
         let is_public_int = if input.is_public { 1 } else { 0 };
+        let method = normalize_method(&input.method);
 
         let affected = conn.execute(
             "UPDATE monitors 
-             SET name = ?1, monitor_type = ?2, target = ?3, interval_sec = ?4, timeout_sec = ?5, max_retries = ?6, is_public = ?7
-             WHERE id = ?8",
-            params![input.name, input.monitor_type, input.target, interval_sec, timeout_sec, max_retries, is_public_int, id],
+             SET name = ?1, monitor_type = ?2, target = ?3, interval_sec = ?4, timeout_sec = ?5, max_retries = ?6, is_public = ?7, method = ?8, headers = ?9, body = ?10
+             WHERE id = ?11",
+            params![input.name, input.monitor_type, input.target, interval_sec, timeout_sec, max_retries, is_public_int, method, input.headers, input.body, id],
         )?;
         Ok(affected > 0)
     }

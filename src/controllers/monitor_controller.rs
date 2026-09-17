@@ -8,8 +8,9 @@ use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
 use crate::database::DbPool;
-use crate::engine::{run_probe_and_record, EventSender};
+use crate::engine::{run_probe_and_record_cfg, EventSender};
 use crate::models::{CreateMonitorInput, Heartbeat, Monitor};
+use crate::prober::HttpRequestConfig;
 
 pub struct MonitorControllerState {
     pub db: DbPool,
@@ -61,17 +62,26 @@ pub async fn store(
     let input_clone = input.clone();
     match Monitor::create(&state.db, &input).await {
         Ok(id) => {
-            // Trigger probe pertama di background
+            // Trigger probe pertama di background (pakai method/headers/body yang dikonfigurasi)
             let db_clone = state.db.clone();
             let tx_clone = state.event_tx.clone();
+            let http_cfg = HttpRequestConfig {
+                method: input_clone.method.clone(),
+                headers: input_clone.headers.clone(),
+                body: input_clone.body.clone(),
+            };
+            let m_type = input_clone.monitor_type.clone();
+            let m_target = input_clone.target.clone();
+            let m_timeout = input_clone.timeout_sec;
             tokio::spawn(async move {
-                run_probe_and_record(
+                run_probe_and_record_cfg(
                     &db_clone,
                     &tx_clone,
                     id,
-                    &input_clone.monitor_type,
-                    &input_clone.target,
-                    input_clone.timeout_sec,
+                    &m_type,
+                    &m_target,
+                    m_timeout,
+                    &http_cfg,
                 )
                 .await;
             });
@@ -94,18 +104,27 @@ pub async fn update(
 
     match Monitor::update(&state.db, id, &input).await {
         Ok(true) => {
-            // Trigger check ulang dengan parameter baru
+            // Trigger check ulang dengan parameter baru (termasuk method/headers/body)
             let db_clone = state.db.clone();
             let tx_clone = state.event_tx.clone();
             let input_clone = input.clone();
+            let http_cfg = HttpRequestConfig {
+                method: input_clone.method.clone(),
+                headers: input_clone.headers.clone(),
+                body: input_clone.body.clone(),
+            };
+            let m_type = input_clone.monitor_type.clone();
+            let m_target = input_clone.target.clone();
+            let m_timeout = input_clone.timeout_sec;
             tokio::spawn(async move {
-                run_probe_and_record(
+                run_probe_and_record_cfg(
                     &db_clone,
                     &tx_clone,
                     id,
-                    &input_clone.monitor_type,
-                    &input_clone.target,
-                    input_clone.timeout_sec,
+                    &m_type,
+                    &m_target,
+                    m_timeout,
+                    &http_cfg,
                 )
                 .await;
             });
@@ -148,13 +167,19 @@ pub async fn check(
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     match Monitor::find(&state.db, id).await {
         Ok(Some(m)) => {
-            let result = run_probe_and_record(
+            let http_cfg = HttpRequestConfig {
+                method: m.method.clone(),
+                headers: m.headers.clone(),
+                body: m.body.clone(),
+            };
+            let result = run_probe_and_record_cfg(
                 &state.db,
                 &state.event_tx,
                 m.id,
                 &m.monitor_type,
                 &m.target,
                 m.timeout_sec,
+                &http_cfg,
             )
             .await;
             Ok(Json(json!(result)))
