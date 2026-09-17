@@ -112,6 +112,8 @@ pub fn build_api_router(
         .route("/api/backup/restore", post(backup_controller::restore_json))
         .route("/api/backup/stats", get(backup_controller::db_stats))
         .route("/api/backup/prune", post(backup_controller::prune_db))
+        // Log percobaan pengiriman alert (persisten, karena log OpenWrt cepat hilang)
+        .route("/api/alerts/log", get(backup_controller::alert_log))
         .with_state(backup_controller_state)
         .route_layer(from_fn_with_state(auth_mw_state, require_admin_auth));
 

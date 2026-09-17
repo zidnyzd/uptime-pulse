@@ -605,6 +605,43 @@
                 </button>
               </div>
             </div>
+
+            <!-- Panel Log Alert Persisten -->
+            <div class="settings-card" style="margin-top: 16px;">
+              <div class="settings-card-header">
+                <div class="settings-card-title">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                  </svg>
+                  <span>Log Pengiriman Alert</span>
+                </div>
+                <div class="settings-card-desc">
+                  Catatan permanen setiap percobaan kirim alert (Telegram). Log sistem OpenWrt disimpan di RAM dan cepat hilang &mdash; panel ini menyimpan jejaknya di disk (maks 1 MB, rotasi otomatis) sehingga kegagalan alert selalu bisa dilacak.
+                </div>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-size: 12px; color: var(--text-muted);">
+                  <span style="font-family: monospace;" id="alert-log-path">alerts.log</span>
+                  &nbsp;&bull;&nbsp;
+                  <span id="alert-log-size">0 KB</span>
+                  &nbsp;&bull;&nbsp;
+                  <span id="alert-log-count">0</span> entri
+                </span>
+                <button type="button" class="btn btn-sm" onclick="loadAlertLog()" style="gap: 6px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                  </svg>
+                  <span>Muat Ulang</span>
+                </button>
+              </div>
+
+              <pre id="alert-log-content" style="background: var(--subtle-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 12px; font-size: 11px; line-height: 1.6; max-height: 280px; overflow: auto; margin: 0; white-space: pre-wrap; word-break: break-all; color: var(--text-primary);">Memuat log...</pre>
+            </div>
           </div>
         </section>
       </main>

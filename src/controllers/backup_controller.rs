@@ -246,6 +246,21 @@ pub async fn db_stats(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
 }
 
+/// GET /api/alerts/log - Membaca log percobaan pengiriman alert (khusus admin).
+/// Berguna karena log OpenWrt ada di RAM dan cepat hilang: tanpa ini, kegagalan
+/// pengiriman alert tidak meninggalkan jejak sama sekali.
+pub async fn alert_log(
+    State(_state): State<Arc<BackupControllerState>>,
+) -> Json<serde_json::Value> {
+    let lines = crate::alert_log::tail(300);
+    Json(json!({
+        "path": crate::alert_log::path(),
+        "size_bytes": crate::alert_log::size_bytes(),
+        "count": lines.len(),
+        "lines": lines,
+    }))
+}
+
 /// POST /api/backup/prune - Trigger manual pruning dan WAL checkpoint oleh admin
 pub async fn prune_db(
     State(state): State<Arc<BackupControllerState>>,

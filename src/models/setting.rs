@@ -62,6 +62,15 @@ impl TelegramSettings {
     // Mengirim pesan ke Telegram Bot API (mendukung thread_id / forum topic)
     pub async fn send_message(&self, message_html: &str) -> Result<(), String> {
         if !self.enabled || self.bot_token.trim().is_empty() || self.chat_id.trim().is_empty() {
+            crate::alert_log::log(
+                "SKIP",
+                &format!(
+                    "Telegram dilewati (enabled={}, token={}, chat_id={})",
+                    self.enabled,
+                    if self.bot_token.trim().is_empty() { "kosong" } else { "ada" },
+                    if self.chat_id.trim().is_empty() { "kosong" } else { "ada" },
+                ),
+            );
             return Ok(());
         }
 
@@ -86,19 +95,42 @@ impl TelegramSettings {
             .build()
             .map_err(|e| e.to_string())?;
 
-        let resp = client
-            .post(&url)
-            .json(&payload)
-            .send()
-            .await
-            .map_err(|e| e.to_string())?;
+        let start = std::time::Instant::now();
+        let resp = match client.post(&url).json(&payload).send().await {
+            Ok(r) => r,
+            Err(e) => {
+                let msg = e.to_string();
+                // Catat kegagalan jaringan/timeout agar ada jejak permanen
+                crate::alert_log::log(
+                    "ERROR",
+                    &format!(
+                        "Telegram GAGAL terkirim setelah {:.1}s: {}",
+                        start.elapsed().as_secs_f64(),
+                        msg
+                    ),
+                );
+                error!("Telegram send failed: {}", msg);
+                return Err(msg);
+            }
+        };
+
+        let elapsed = start.elapsed().as_secs_f64();
 
         if !resp.status().is_success() {
+            let status = resp.status();
             let err_text = resp.text().await.unwrap_or_default();
+            crate::alert_log::log(
+                "ERROR",
+                &format!("Telegram API menolak (HTTP {}): {}", status.as_u16(), err_text),
+            );
             error!("Telegram API error: {}", err_text);
             return Err(err_text);
         }
 
+        crate::alert_log::log(
+            "OK",
+            &format!("Telegram terkirim ({:.1}s)", elapsed),
+        );
         info!("Telegram notification successfully sent.");
         Ok(())
     }

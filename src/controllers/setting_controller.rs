@@ -36,6 +36,29 @@ pub async fn test_telegram_notification(
     Json(mut payload): Json<TelegramSettings>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     payload.enabled = true;
+
+    // Validasi konfigurasi lebih dulu. Tanpa ini, `send_message` mengembalikan Ok
+    // saat konfigurasi kosong (perilaku benar untuk alur alert biasa), sehingga
+    // endpoint test akan melaporkan "berhasil" padahal tidak ada pesan terkirim.
+    if payload.bot_token.trim().is_empty() || payload.chat_id.trim().is_empty() {
+        let missing = if payload.bot_token.trim().is_empty() {
+            "Bot Token"
+        } else {
+            "Chat ID"
+        };
+        crate::alert_log::log(
+            "ERROR",
+            &format!("Tes Telegram gagal: {} belum diisi", missing),
+        );
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "success": false,
+                "error": format!("{} belum diisi — pesan tidak dikirim.", missing)
+            })),
+        ));
+    }
+
     let thread_info = payload.thread_id.map(|t| format!(" • Topic #{}", t)).unwrap_or_default();
     let test_msg = format!(
         "🔔 <b>[TEST] UptimePulse Telegram Alert</b>{}\n\n\

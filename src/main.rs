@@ -1,4 +1,5 @@
 // Deklarasi modul arsitektur MVC (Model-View-Controller)
+mod alert_log;
 mod config;
 mod database;
 mod engine;
@@ -41,6 +42,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Inisialisasi Database SQLite
     info!("Initializing database at '{}'...", app_config.db_path);
     let db = database::init_db(&app_config.db_path)?;
+
+    // Inisialisasi log alert persisten (di folder yang sama dengan database).
+    // Log OpenWrt ada di RAM dan ter-rotate cepat, sehingga kegagalan alert
+    // tidak meninggalkan jejak tanpa file ini.
+    alert_log::init(&app_config.db_path);
+    if let Some(p) = alert_log::path() {
+        info!("Alert log initialized at '{}'.", p);
+    }
 
     // Pastikan user admin default tersedia (dapat di-override via flag --password atau env ADMIN_PASSWORD)
     let default_admin_pass = app_config

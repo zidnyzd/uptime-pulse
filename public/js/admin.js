@@ -1615,6 +1615,7 @@ async function switchView(viewName) {
     await loadBrandingSettings();
   } else if (viewName === 'backup') {
     await loadDbStats();
+    await loadAlertLog();
   }
 
   // Tutup drawer sidebar mobile jika sedang terbuka
@@ -1814,6 +1815,42 @@ async function handleRestoreBackup(e) {
   };
 
   reader.readAsText(file);
+}
+
+// --- Log Pengiriman Alert (persisten) ---
+async function loadAlertLog() {
+  const pre = document.getElementById('alert-log-content');
+  try {
+    const res = await apiFetch('/api/alerts/log');
+    if (!res.ok) {
+      if (pre) pre.textContent = 'Gagal memuat log (HTTP ' + res.status + ')';
+      return;
+    }
+    const data = await res.json();
+
+    const pathEl = document.getElementById('alert-log-path');
+    if (pathEl) pathEl.textContent = data.path || 'alerts.log';
+
+    const sizeEl = document.getElementById('alert-log-size');
+    if (sizeEl) sizeEl.textContent = (data.size_bytes / 1024).toFixed(1) + ' KB';
+
+    const countEl = document.getElementById('alert-log-count');
+    if (countEl) countEl.textContent = data.count;
+
+    if (pre) {
+      if (!data.lines || data.lines.length === 0) {
+        pre.textContent = currentLang === 'id'
+          ? 'Belum ada catatan. Log akan terisi saat alert dikirim atau diuji.'
+          : 'No entries yet. The log fills when an alert is sent or tested.';
+      } else {
+        // Terbaru di atas agar yang penting langsung terlihat
+        pre.textContent = data.lines.slice().reverse().join('\n');
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load alert log:', err);
+    if (pre) pre.textContent = 'Error: ' + err.message;
+  }
 }
 
 // --- Database Storage & Maintenance (Pruning & Stats) ---
