@@ -69,6 +69,8 @@ pub async fn store(
                 method: input_clone.method.clone(),
                 headers: input_clone.headers.clone(),
                 body: input_clone.body.clone(),
+                json_path: input_clone.json_path.clone(),
+                expected_value: input_clone.expected_value.clone(),
             };
             let m_type = input_clone.monitor_type.clone();
             let m_target = input_clone.target.clone();
@@ -112,6 +114,8 @@ pub async fn update(
                 method: input_clone.method.clone(),
                 headers: input_clone.headers.clone(),
                 body: input_clone.body.clone(),
+                json_path: input_clone.json_path.clone(),
+                expected_value: input_clone.expected_value.clone(),
             };
             let m_type = input_clone.monitor_type.clone();
             let m_target = input_clone.target.clone();
@@ -171,6 +175,8 @@ pub async fn check(
                 method: m.method.clone(),
                 headers: m.headers.clone(),
                 body: m.body.clone(),
+                json_path: m.json_path.clone(),
+                expected_value: m.expected_value.clone(),
             };
             let result = run_probe_and_record_cfg(
                 &state.db,

@@ -271,6 +271,7 @@
               <div class="filter-pills">
                 <button class="filter-pill active" data-i18n="filter_all" onclick="setFilter('all', this)">All</button>
                 <button class="filter-pill" onclick="setFilter('http', this)">HTTP</button>
+                <button class="filter-pill" onclick="setFilter('http_json', this)">JSON</button>
                 <button class="filter-pill" onclick="setFilter('tcp', this)">TCP</button>
                 <button class="filter-pill" onclick="setFilter('ping', this)">Ping</button>
               </div>
@@ -710,6 +711,7 @@
             <label>Monitor Type</label>
             <select class="form-control" id="m-type" onchange="handleTypeChange()">
               <option value="http">HTTP(s)</option>
+              <option value="http_json">HTTP JSON Query</option>
               <option value="tcp">TCP Port</option>
               <option value="ping">Ping (ICMP)</option>
             </select>
@@ -767,6 +769,24 @@
             <label title="Body request, umumnya JSON">Request Body <span style="color: var(--text-muted); font-weight: 400;">(opsional)</span></label>
             <textarea class="form-control" id="m-body" rows="2" placeholder='{"key": "value"}' style="font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
           </div>
+
+          <!-- Assertion isi respons, hanya untuk tipe "HTTP JSON Query" -->
+          <div id="m-json-fields" style="display: none;">
+            <div class="form-row">
+              <div class="form-group" style="flex: 1;">
+                <label title="Jalur ke nilai di dalam JSON, mis. status atau data.health">JSON Path</label>
+                <input type="text" class="form-control" id="m-json-path" placeholder="status" style="font-family: monospace; font-size: 12px;">
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label title="Nilai yang diharapkan. Kosongkan bila cukup path-nya ada">Expected Value</label>
+                <input type="text" class="form-control" id="m-expected-value" placeholder="ok" style="font-family: monospace; font-size: 12px;">
+              </div>
+            </div>
+            <div class="form-tip-box">
+              <strong>🔎 HTTP JSON Query:</strong> Target dinyatakan UP hanya bila respons JSON memuat nilai pada <em>JSON Path</em> yang sama dengan <em>Expected Value</em>. Menangkap kasus "HTTP 200 tetapi isinya error". Path mendukung dot notation dan indeks array, mis. <code>data.items.0.state</code>. Kosongkan <em>Expected Value</em> bila cukup memastikan path-nya ada.
+            </div>
+          </div>
+
           <div class="form-tip-box" style="border-color: rgba(234, 179, 8, 0.35);">
             <strong>🔐 Kredensial:</strong> Header &amp; Body bisa memuat token/API key. Nilainya hanya tampil di konsol admin ini dan tidak pernah dikirim ke halaman status publik.
           </div>
@@ -798,6 +818,7 @@
             <label>Monitor Type</label>
             <select class="form-control" id="edit-type" onchange="handleEditTypeChange()">
               <option value="http">HTTP(s)</option>
+              <option value="http_json">HTTP JSON Query</option>
               <option value="tcp">TCP Port</option>
               <option value="ping">Ping (ICMP)</option>
             </select>
@@ -855,6 +876,24 @@
             <label title="Body request, umumnya JSON">Request Body <span style="color: var(--text-muted); font-weight: 400;">(opsional)</span></label>
             <textarea class="form-control" id="edit-body" rows="2" placeholder='{"key": "value"}' style="font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
           </div>
+
+          <!-- Assertion isi respons, hanya untuk tipe "HTTP JSON Query" -->
+          <div id="edit-json-fields" style="display: none;">
+            <div class="form-row">
+              <div class="form-group" style="flex: 1;">
+                <label title="Jalur ke nilai di dalam JSON, mis. status atau data.health">JSON Path</label>
+                <input type="text" class="form-control" id="edit-json-path" placeholder="status" style="font-family: monospace; font-size: 12px;">
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label title="Nilai yang diharapkan. Kosongkan bila cukup path-nya ada">Expected Value</label>
+                <input type="text" class="form-control" id="edit-expected-value" placeholder="ok" style="font-family: monospace; font-size: 12px;">
+              </div>
+            </div>
+            <div class="form-tip-box">
+              <strong>🔎 HTTP JSON Query:</strong> Target dinyatakan UP hanya bila respons JSON memuat nilai pada <em>JSON Path</em> yang sama dengan <em>Expected Value</em>. Menangkap kasus "HTTP 200 tetapi isinya error". Path mendukung dot notation dan indeks array, mis. <code>data.items.0.state</code>. Kosongkan <em>Expected Value</em> bila cukup memastikan path-nya ada.
+            </div>
+          </div>
+
           <div class="form-tip-box" style="border-color: rgba(234, 179, 8, 0.35);">
             <strong>🔐 Kredensial:</strong> Header &amp; Body bisa memuat token/API key. Nilainya hanya tampil di konsol admin ini dan tidak pernah dikirim ke halaman status publik.
           </div>

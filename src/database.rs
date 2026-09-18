@@ -127,6 +127,15 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
         let _ = conn.execute("ALTER TABLE monitors ADD COLUMN body TEXT NOT NULL DEFAULT ''", []);
     }
 
+    // Migrasi kolom assertion JSON (untuk tipe monitor http_json) jika belum ada.
+    // `json_path` memakai dot notation (mis. "status" atau "data.health"),
+    // `expected_value` adalah nilai yang diharapkan pada jalur tersebut.
+    let has_json_path = conn.prepare("SELECT json_path FROM monitors LIMIT 1").is_ok();
+    if !has_json_path {
+        let _ = conn.execute("ALTER TABLE monitors ADD COLUMN json_path TEXT NOT NULL DEFAULT ''", []);
+        let _ = conn.execute("ALTER TABLE monitors ADD COLUMN expected_value TEXT NOT NULL DEFAULT ''", []);
+    }
+
     Ok(Arc::new(Mutex::new(conn)))
 }
 

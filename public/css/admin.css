@@ -855,6 +855,11 @@
   color: #d2a8ff;
 }
 
+.type-pill.http_json {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--green);
+}
+
 .widget-endpoint {
   font-size: 12px;
   color: var(--text-muted);

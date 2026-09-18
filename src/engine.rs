@@ -115,6 +115,8 @@ pub fn start_scheduler(db: DbPool, event_tx: EventSender, retention_days: u32) {
                         method: monitor.method.clone(),
                         headers: monitor.headers.clone(),
                         body: monitor.body.clone(),
+                        json_path: monitor.json_path.clone(),
+                        expected_value: monitor.expected_value.clone(),
                     };
                     let m_type = monitor.monitor_type.clone();
                     let m_target = monitor.target.clone();

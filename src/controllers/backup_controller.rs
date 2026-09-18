@@ -52,6 +52,12 @@ pub struct BackupMonitorItem {
     pub headers: String,
     #[serde(default)]
     pub body: String,
+    // Assertion isi respons (tipe http_json). `#[serde(default)]` menjaga
+    // kompatibilitas dengan file backup lama.
+    #[serde(default)]
+    pub json_path: String,
+    #[serde(default)]
+    pub expected_value: String,
 }
 
 fn default_item_retries() -> Option<i64> {
@@ -100,6 +106,8 @@ pub async fn export_json(
             method: m.method,
             headers: m.headers,
             body: m.body,
+            json_path: m.json_path,
+            expected_value: m.expected_value,
         })
         .collect();
 
@@ -233,9 +241,9 @@ pub async fn restore_json(
             let method = crate::models::monitor::normalize_method(&m.method);
 
             tx.execute(
-                "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, sort_order, method, headers, body)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8, 'pending', ?9, ?10, ?11, ?12)",
-                params![m.name, m.monitor_type, m.target, interval, timeout, max_retries, is_act, is_pub, sort_order, method, m.headers, m.body],
+                "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, sort_order, method, headers, body, json_path, expected_value)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8, 'pending', ?9, ?10, ?11, ?12, ?13, ?14)",
+                params![m.name, m.monitor_type, m.target, interval, timeout, max_retries, is_act, is_pub, sort_order, method, m.headers, m.body, m.json_path, m.expected_value],
             )
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))))?;
 

@@ -500,7 +500,7 @@ function createMonitorWidget(m) {
           <div class="widget-name-header">
             <span class="widget-name-title" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</span>
             <div class="widget-badges">
-              <span class="type-pill ${typeClass}">${m.monitor_type}</span>
+              <span class="type-pill ${typeClass}">${typeBadgeLabel(m.monitor_type)}</span>
               ${privateBadge}
               ${pausedBadge}
             </div>
@@ -839,6 +839,14 @@ function recalcStats() {
   document.getElementById('kpi-latency').textContent = `${avgLat} ms`;
 }
 
+// Label ringkas untuk badge tipe monitor (http_json -> "JSON")
+function typeBadgeLabel(type) {
+  const t = (type || '').toLowerCase();
+  if (t === 'http_json') return 'JSON';
+  if (t === 'http' || t === 'https') return 'HTTP';
+  return t.toUpperCase();
+}
+
 // Filter pill click
 function setFilter(type, btn) {
   currentFilter = type;
@@ -1005,18 +1013,25 @@ function handleTypeChange() {
   const targetInput = document.getElementById('m-target');
   const targetLabel = document.getElementById('target-label');
   const advanced = document.getElementById('m-http-advanced');
+  const jsonFields = document.getElementById('m-json-fields');
   if (type === 'tcp') {
     targetLabel.textContent = 'Target Host & Port';
     targetInput.placeholder = '192.168.1.1:80 or example.com:22';
   } else if (type === 'ping') {
     targetLabel.textContent = 'Target Host / IP';
     targetInput.placeholder = '1.1.1.1 or example.com';
+  } else if (type === 'http_json') {
+    targetLabel.textContent = 'Target URL (JSON)';
+    targetInput.placeholder = 'https://api.example.com/health';
   } else {
     targetLabel.textContent = 'Target URL';
     targetInput.placeholder = 'https://example.com';
   }
-  // Field method/headers/body hanya relevan untuk HTTP/HTTPS
-  if (advanced) advanced.style.display = (type === 'http') ? 'block' : 'none';
+  // Field method/headers/body relevan untuk semua tipe HTTP;
+  // field assertion JSON hanya untuk "HTTP JSON Query".
+  const isHttp = (type === 'http' || type === 'http_json');
+  if (advanced) advanced.style.display = isHttp ? 'block' : 'none';
+  if (jsonFields) jsonFields.style.display = (type === 'http_json') ? 'block' : 'none';
 }
 
 async function handleCreateMonitor(e) {
@@ -1032,6 +1047,8 @@ async function handleCreateMonitor(e) {
     method: document.getElementById('m-method').value || 'GET',
     headers: document.getElementById('m-headers').value || '',
     body: document.getElementById('m-body').value || '',
+    json_path: document.getElementById('m-json-path').value || '',
+    expected_value: document.getElementById('m-expected-value').value || '',
   };
 
   try {
@@ -1071,6 +1088,8 @@ function openEditModal(id) {
   document.getElementById('edit-method').value = m.method || 'GET';
   document.getElementById('edit-headers').value = m.headers || '';
   document.getElementById('edit-body').value = m.body || '';
+  document.getElementById('edit-json-path').value = m.json_path || '';
+  document.getElementById('edit-expected-value').value = m.expected_value || '';
 
   handleEditTypeChange();
   document.getElementById('edit-modal').style.display = 'flex';
@@ -1085,6 +1104,7 @@ function handleEditTypeChange() {
   const targetLabel = document.getElementById('edit-target-label');
   const targetInput = document.getElementById('edit-target');
   const advanced = document.getElementById('edit-http-advanced');
+  const jsonFields = document.getElementById('edit-json-fields');
 
   if (type === 'tcp') {
     targetLabel.textContent = 'Target Host:Port';
@@ -1092,12 +1112,18 @@ function handleEditTypeChange() {
   } else if (type === 'ping') {
     targetLabel.textContent = 'Target Host / IP';
     targetInput.placeholder = '1.1.1.1 or example.com';
+  } else if (type === 'http_json') {
+    targetLabel.textContent = 'Target URL (JSON)';
+    targetInput.placeholder = 'https://api.example.com/health';
   } else {
     targetLabel.textContent = 'Target URL';
     targetInput.placeholder = 'https://example.com';
   }
-  // Field method/headers/body hanya relevan untuk HTTP/HTTPS
-  if (advanced) advanced.style.display = (type === 'http') ? 'block' : 'none';
+  // Field method/headers/body relevan untuk semua tipe HTTP;
+  // field assertion JSON hanya untuk "HTTP JSON Query".
+  const isHttp = (type === 'http' || type === 'http_json');
+  if (advanced) advanced.style.display = isHttp ? 'block' : 'none';
+  if (jsonFields) jsonFields.style.display = (type === 'http_json') ? 'block' : 'none';
 }
 
 async function handleUpdateMonitor(e) {
@@ -1114,6 +1140,8 @@ async function handleUpdateMonitor(e) {
     method: document.getElementById('edit-method').value || 'GET',
     headers: document.getElementById('edit-headers').value || '',
     body: document.getElementById('edit-body').value || '',
+    json_path: document.getElementById('edit-json-path').value || '',
+    expected_value: document.getElementById('edit-expected-value').value || '',
   };
 
   const btn = document.getElementById('btn-edit-submit');

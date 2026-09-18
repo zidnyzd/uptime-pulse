@@ -253,9 +253,24 @@ body {
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   display: none;
-  align-items: center;
+  /* align-items: flex-start (bukan center) + `margin: auto` pada .modal:
+     modal tetap ter-center saat muat, tapi saat lebih tinggi dari layar ia
+     menempel ke atas dan overlay bisa di-scroll. Dengan `center`, bagian atas
+     modal terpotong dan tidak bisa dijangkau sama sekali. */
+  align-items: flex-start;
   justify-content: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 24px 16px;
   z-index: 100;
+}
+
+/* Layar sangat pendek: rapatkan padding agar ruang vertikal lebih lega */
+@media (max-height: 640px) {
+  .modal-overlay {
+    padding: 12px 12px;
+  }
 }
 
 [data-theme="light"] .modal-overlay {
@@ -270,6 +285,9 @@ body {
   max-width: 440px;
   padding: 24px;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+  /* auto margin menyerap ruang sisa -> ter-center saat pendek,
+     menjadi 0 saat modal lebih tinggi dari layar sehingga bisa di-scroll */
+  margin: auto;
 }
 
 [data-theme="light"] .modal {

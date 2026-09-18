@@ -4,16 +4,34 @@ use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 use crate::models::ProbeResult;
 
-// Konfigurasi request HTTP kustom (method, header, body).
-// Dipakai agar bisa memantau endpoint non-GET dan API yang butuh autentikasi.
+// Konfigurasi request HTTP kustom (method, header, body, dan assertion JSON).
+// Dipakai agar bisa memantau endpoint non-GET, API yang butuh autentikasi,
+// serta endpoint yang perlu dicek isi responsnya (bukan hanya status code).
 #[derive(Debug, Clone, Default)]
 pub struct HttpRequestConfig {
     pub method: String,
     pub headers: String,
     pub body: String,
+    /// Jalur (dot notation) ke nilai di dalam JSON respons, mis. "status" atau "data.health".
+    /// Kosong berarti tidak ada pemeriksaan isi.
+    pub json_path: String,
+    /// Nilai yang diharapkan pada `json_path`. Kosong berarti cukup path-nya ada.
+    pub expected_value: String,
 }
 
-// Dispatcher dengan konfigurasi request HTTP (method/headers/body).
+/// User-Agent bawaan yang dikirim pada setiap request HTTP.
+///
+/// Tanpa ini, reqwest tidak mengirim User-Agent sama sekali, sehingga di access log
+/// server target request UptimePulse muncul sebagai "-" dan tidak bisa dibedakan
+/// dari bot/scraper. Nilai ini bisa ditimpa per monitor lewat custom header
+/// "User-Agent".
+pub const DEFAULT_USER_AGENT: &str = concat!(
+    "UptimePulse/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/zidnyzd/uptime-pulse)"
+);
+
+// Dispatcher dengan konfigurasi request HTTP (method/headers/body/assertion JSON).
 // Tipe tcp/ping mengabaikan konfigurasi ini.
 pub async fn probe_with_config(
     monitor_id: i64,
@@ -25,7 +43,9 @@ pub async fn probe_with_config(
     let timeout_duration = Duration::from_secs(timeout_sec.max(1) as u64);
 
     match monitor_type {
-        "http" | "https" => probe_http(monitor_id, target, timeout_duration, http_cfg).await,
+        "http" | "https" => probe_http(monitor_id, target, timeout_duration, http_cfg, false).await,
+        // Sama seperti http, tetapi isi respons diperiksa terhadap json_path/expected_value
+        "http_json" => probe_http(monitor_id, target, timeout_duration, http_cfg, true).await,
         "tcp" => probe_tcp(monitor_id, target, timeout_duration).await,
         "ping" | "icmp" => probe_ping(monitor_id, target, timeout_sec).await,
         _ => ProbeResult {
@@ -38,6 +58,66 @@ pub async fn probe_with_config(
     }
 }
 
+/// Mencari nilai di dalam JSON memakai jalur dot notation.
+/// Mendukung key objek dan indeks array, mis. "data.items.0.state".
+/// Mengembalikan nilai sebagai String agar bisa dibandingkan dengan
+/// `expected_value` yang diketik pengguna.
+fn json_path_lookup(root: &serde_json::Value, path: &str) -> Option<String> {
+    let mut current = root;
+    for segmen in path.split('.') {
+        let segmen = segmen.trim();
+        if segmen.is_empty() {
+            continue;
+        }
+        current = match current {
+            serde_json::Value::Object(map) => map.get(segmen)?,
+            serde_json::Value::Array(arr) => {
+                let idx: usize = segmen.parse().ok()?;
+                arr.get(idx)?
+            }
+            _ => return None,
+        };
+    }
+
+    Some(match current {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Null => "null".to_string(),
+        serde_json::Value::Bool(b) => b.to_string(),
+        serde_json::Value::Number(n) => n.to_string(),
+        // Objek/array dibandingkan dalam bentuk JSON ringkas
+        other => other.to_string(),
+    })
+}
+
+/// Memeriksa isi respons terhadap json_path/expected_value.
+/// Mengembalikan Ok(()) bila sesuai, atau Err(pesan) bila tidak.
+fn check_json_assertion(body: &str, json_path: &str, expected_value: &str) -> Result<(), String> {
+    let path = json_path.trim();
+    if path.is_empty() {
+        return Ok(());
+    }
+
+    let parsed: serde_json::Value = serde_json::from_str(body)
+        .map_err(|e| format!("Respons bukan JSON valid: {}", e))?;
+
+    let found = json_path_lookup(&parsed, path)
+        .ok_or_else(|| format!("JSON path '{}' tidak ditemukan", path))?;
+
+    let expected = expected_value.trim();
+    if expected.is_empty() {
+        // Hanya keberadaan path yang diperiksa
+        return Ok(());
+    }
+
+    if found.trim() == expected {
+        Ok(())
+    } else {
+        Err(format!("Nilai JSON '{}' adalah '{}', diharapkan '{}'", path, found, expected))
+    }
+}
+
+// Melakukan HTTP request (method dapat dikonfigurasi) dan mengukur waktu respons.
+// Bila `assert_json` aktif, isi respons juga diperiksa.
 /// Mengurai header kustom dari format teks "Nama: Nilai" (satu per baris).
 /// Baris kosong dan baris tanpa ':' diabaikan. Nama header divalidasi agar
 /// tidak bisa menyuntikkan karakter ilegal ke protokol HTTP.
@@ -63,12 +143,14 @@ fn parse_headers(raw: &str) -> Vec<(String, String)> {
     out
 }
 
-// Melakukan HTTP request (method dapat dikonfigurasi) dan mengukur waktu respons
+// Melakukan HTTP request (method dapat dikonfigurasi) dan mengukur waktu respons.
+// Bila `assert_json` aktif, isi respons juga diperiksa terhadap json_path/expected_value.
 async fn probe_http(
     monitor_id: i64,
     target: &str,
     timeout_duration: Duration,
     cfg: &HttpRequestConfig,
+    assert_json: bool,
 ) -> ProbeResult {
     let url = if !target.starts_with("http://") && !target.starts_with("https://") {
         format!("https://{}", target)
@@ -114,6 +196,14 @@ async fn probe_http(
         req = req.header(name.as_str(), value.as_str());
     }
 
+    // User-Agent bawaan, supaya di access log server target request ini bisa
+    // dikenali (tanpa ini muncul sebagai "-"). Custom header "User-Agent"
+    // dari pengguna tetap menang.
+    let has_ua = headers.iter().any(|(n, _)| n.eq_ignore_ascii_case("user-agent"));
+    if !has_ua {
+        req = req.header("User-Agent", DEFAULT_USER_AGENT);
+    }
+
     // Sisipkan body bila diisi dan method memungkinkan.
     // GET/HEAD secara umum tidak berbody; tetap dikirim bila user mengisinya
     // karena beberapa API non-standar memanfaatkannya.
@@ -135,16 +225,33 @@ async fn probe_http(
             let status_code = status.as_u16() as i32;
 
             // Standar monitoring: Kode 2xx (sukses) dan 3xx (redirect) dianggap UP
-            let is_up = status.is_success() || status.is_redirection();
-            let error_message = if !is_up {
-                Some(format!("HTTP {}", status_code))
+            let status_ok = status.is_success() || status.is_redirection();
+
+            if !status_ok {
+                return ProbeResult {
+                    monitor_id,
+                    is_up: false,
+                    status_code: Some(status_code),
+                    latency_ms: (latency * 10.0).round() / 10.0,
+                    error_message: Some(format!("HTTP {}", status_code)),
+                };
+            }
+
+            // Untuk tipe http_json: status 200 saja belum cukup, isi respons
+            // harus memuat nilai yang diharapkan. Di sinilah kasus "HTTP 200
+            // tapi body-nya error" tertangkap.
+            let error_message = if assert_json {
+                match response.text().await {
+                    Ok(body) => check_json_assertion(&body, &cfg.json_path, &cfg.expected_value).err(),
+                    Err(e) => Some(format!("Gagal membaca isi respons: {}", e)),
+                }
             } else {
                 None
             };
 
             ProbeResult {
                 monitor_id,
-                is_up,
+                is_up: error_message.is_none(),
                 status_code: Some(status_code),
                 latency_ms: (latency * 10.0).round() / 10.0,
                 error_message,
