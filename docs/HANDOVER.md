@@ -1,39 +1,58 @@
-# UptimePulse: Catatan Serah Terima
+# UptimePulse: Catatan Operasional
 
-Dokumen ini adalah catatan status terkini proyek, riwayat perubahan, dan hal yang
-masih tertunda. Disimpan di dalam repo supaya tidak hilang, karena `/tmp` adalah
-tmpfs yang bisa terhapus kapan saja.
+Dokumen ini berisi catatan operasional, riwayat perubahan, dan pelajaran yang
+didapat dari menjalankan UptimePulse di perangkat nyata. Tujuannya agar siapa pun
+yang men-deploy proyek ini tidak mengulangi masalah yang sama.
 
-Terakhir diperbarui: 19 September 2026
+Contoh di dokumen ini memakai alamat generik (`example.com`, dan rentang IP
+dokumentasi RFC 5737) supaya tidak memuat detail infrastruktur siapa pun.
 
 ---
 
-## 1. Status Terkini
+## 1. Alur Deploy
 
-| Item | Nilai |
-|---|---|
-| Repo | https://github.com/zidnyzd/uptime-pulse |
-| Branch | `master` (bersih, sinkron dengan origin) |
-| Commit terakhir | `39ea352` |
-| Rilis terbaru | `v0.1.4` |
-| Halaman publik | https://status.zidstore.net |
-| Perangkat produksi | STB `192.168.1.2` (OpenWrt, aarch64) |
-| Binary produksi | `/usr/bin/uptime-pulse` md5 `b894a3f37a9f88cc6bdad62e2f4b176c` |
-| Database produksi | `/etc/uptime-pulse/uptime.db` (btrfs, permanen) |
-| Log alert | `/etc/uptime-pulse/alerts.log` |
-| Monitor aktif | 17 (16 publik, 1 privat) |
-| Status live | `operational`, 16/16 |
-
-### Alur deploy
+UptimePulse adalah binary statis tunggal, jadi deployment tidak memerlukan
+runtime apa pun di sisi target.
 
 1. Commit dan push ke `master`.
 2. Push tag `v*.*.*` untuk memicu job rilis.
-3. CI membangun binary statis musl untuk amd64 dan arm64.
-4. Ambil artifact arm64, lalu pasang ke STB secara atomik:
-   backup binary dan database, unggah ke `/tmp`, verifikasi md5, tukar, restart,
-   lalu pastikan PID berubah.
-5. Frontend di-embed lewat `rust-embed`, jadi setiap perubahan di `public/`
-   wajib membangun ulang binary.
+3. CI membangun binary statis musl untuk `amd64` dan `arm64` (target
+   `aarch64-unknown-linux-musl`).
+4. Ambil artifact `arm64`, lalu pasang secara atomik ke perangkat target.
+
+### Pemasangan atomik (dengan rollback)
+
+Jangan menimpa binary yang sedang berjalan secara langsung. Urutannya:
+
+```sh
+# 1. Unggah ke lokasi sementara, jangan ke /usr/bin
+scp uptime-pulse-linux-arm64 root@TARGET:/tmp/uptime-pulse-new
+
+# 2. Verifikasi integritas SEBELUM menukar
+ssh root@TARGET 'md5sum /tmp/uptime-pulse-new'   # harus sama dengan lokal
+
+# 3. Cadangkan binary dan database
+ssh root@TARGET 'cp /usr/bin/uptime-pulse /usr/bin/uptime-pulse.bak-$(date +%Y%m%d-%H%M)'
+ssh root@TARGET 'cp /etc/uptime-pulse/uptime.db /etc/uptime-pulse/backup/uptime.db.pre-$(date +%Y%m%d-%H%M)'
+
+# 4. Tukar dan restart
+ssh root@TARGET 'cp /tmp/uptime-pulse-new /usr/bin/uptime-pulse && chmod 755 /usr/bin/uptime-pulse'
+ssh root@TARGET '/etc/init.d/uptime-pulse restart'
+```
+
+**Pastikan PID berubah**, jangan percaya keluaran perintah restart saja. Sebuah
+supervisor bisa melaporkan `running` sementara proses lama masih melayani.
+Bandingkan PID sebelum dan sesudah.
+
+### Catatan penting
+
+- **Frontend di-embed lewat `rust-embed`.** Setiap perubahan di `public/` wajib
+  membangun ulang binary. Mengedit berkas di disk tidak berpengaruh pada layanan
+  yang sedang berjalan.
+- **Cek ruang penyimpanan sebelum menukar.** Perangkat dengan `/overlay` hampir
+  penuh bisa gagal menyalin.
+- **Backup database perlu checkpoint.** Dalam mode WAL, transaksi terbaru ada di
+  berkas `-wal`. Menyalin `.db` saja menghasilkan backup yang basi.
 
 ---
 
@@ -41,22 +60,19 @@ Terakhir diperbarui: 19 September 2026
 
 ### v0.1.4: User-Agent, HTTP JSON Query, perbaikan modal
 
-Menutup tiga saran lanjutan di issue #1.
-
 **User-Agent.** Sebelumnya request HTTP tidak mengirim User-Agent sama sekali
-sehingga di access log server tujuan muncul sebagai `-`. Sekarang setiap request
-mengirim:
+sehingga di access log server tujuan muncul sebagai `-` dan tidak bisa dibedakan
+dari bot. Sekarang setiap request mengirim:
 
 ```
-User-Agent: UptimePulse/0.1.4 (+https://github.com/zidnyzd/uptime-pulse)
+User-Agent: UptimePulse/<versi> (+https://github.com/zidnyzd/uptime-pulse)
 ```
 
-Bisa diganti per monitor lewat Custom Header `User-Agent`. Versi di `Cargo.toml`
-diselaraskan ke 0.1.4 karena sebelumnya tertinggal di 0.1.0 meski tag sudah
-v0.1.3.
+Bisa diganti per monitor lewat Custom Header `User-Agent`.
 
 **Tipe monitor baru: HTTP JSON Query (`http_json`).** Menutup kasus "HTTP 200
-tetapi isi respons menandakan error". Dua field baru:
+tetapi isi respons menandakan error", yang tidak bisa ditangkap pemeriksaan
+status code saja.
 
 - `json_path`: jalur ke nilai di dalam JSON, dot notation, mendukung indeks
   array. Contoh `status`, `data.health`, `items.0.state`.
@@ -64,8 +80,8 @@ tetapi isi respons menandakan error". Dua field baru:
   jalurnya ada.
 
 Perbandingan bersifat persis (bukan pencarian sebagian) dan dilakukan sebagai
-teks, sehingga angka, boolean, `null`, dan string semuanya bisa dicocokkan.
-Tipe `http` biasa tidak terpengaruh.
+teks, sehingga angka, boolean, `null`, dan string semuanya bisa dicocokkan. Tipe
+`http` biasa tidak terpengaruh.
 
 **Perbaikan modal di layar kecil.** Overlay memakai `align-items: center` tanpa
 overflow, sehingga modal yang lebih tinggi dari layar terpotong ke atas dan ke
@@ -75,8 +91,8 @@ Perbaikan: overlay menjadi area scroll, modal memakai `margin: auto`.
 
 ### v0.1.3: HTTP method, custom headers, request body
 
-Menutup saran pertama di issue #1. Sebelumnya method di-hardcode `GET` di
-`prober.rs` sehingga endpoint non-GET dan API ber-token tidak bisa dipantau.
+Sebelumnya method di-hardcode `GET` di `prober.rs` sehingga endpoint non-GET dan
+API ber-token tidak bisa dipantau.
 
 - Kolom baru `method`, `headers`, `body` dengan migrasi otomatis.
 - Tujuh method: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.
@@ -88,13 +104,15 @@ Menutup saran pertama di issue #1. Sebelumnya method di-hardcode `GET` di
 
 ### v0.1.2: Logging persisten alert
 
-Log OpenWrt disimpan di RAM dan ter-rotate cepat. Terukur: buffer `logread`
-hanya bertahan sekitar 3 menit karena NextDNS sangat verbose (183 dari 578 baris
-adalah log DNS), sehingga kegagalan alert tidak meninggalkan jejak apa pun.
+Log sistem pada router (OpenWrt/BusyBox) disimpan di RAM dan ter-rotate cepat.
+Terukur pada perangkat uji: buffer `logread` hanya bertahan sekitar 3 menit
+karena layanan DNS yang verbose membanjiri buffer, sehingga kegagalan alert
+tidak meninggalkan jejak apa pun.
 
 - Modul `src/alert_log.rs`: catat `OK` / `ERROR` / `SKIP` setiap percobaan kirim.
-- Lokasi diturunkan dari `--db`, jadi `/etc/uptime-pulse/alerts.log` di STB.
-- Rotasi pada 512 KB, total dibatasi sekitar 1 MB, karena target adalah eMMC
+- Lokasi diturunkan dari `--db`, sehingga berada di folder yang sama dengan
+  database.
+- Rotasi pada 512 KB, total dibatasi sekitar 1 MB, karena targetnya adalah eMMC
   dengan umur tulis terbatas. Hanya ditulis saat status berubah, bukan per probe.
 - Endpoint `GET /api/alerts/log` dan panel di view Backup admin.
 - Perbaikan bug: endpoint test Telegram melaporkan "berhasil" (HTTP 200) padahal
@@ -106,7 +124,7 @@ Tujuh temuan audit. Yang paling penting:
 
 1. Insiden dari monitor privat atau paused tidak lagi bocor ke halaman publik.
    Solusinya parameter `public_only` pada query, bukan filter mentah, karena
-   `admin.js` juga membaca endpoint yang sama.
+   konsol admin juga membaca endpoint yang sama.
 2. Prune per-insert dihapus (sekitar 23.000 query DELETE per hari yang hampir
    selalu menghapus 0 baris) dan index `idx_hb_time` ditambahkan agar prune
    global tidak melakukan full table scan.
@@ -120,33 +138,37 @@ Tujuh temuan audit. Yang paling penting:
 
 ## 3. Catatan Operasional
 
-### Memilih tipe monitor: Cloudflare versus server langsung
+### Memilih tipe monitor: di balik Cloudflare atau server langsung
 
 Untuk domain yang berada di balik Cloudflare, gunakan **HTTP(S)**, bukan ping.
 Ping ke domain Cloudflare hanya mengukur edge terdekat, bukan server asli.
-Origin bisa mati total sementara ping tetap 0% loss.
+Origin bisa mati total sementara ping tetap 0% loss, sehingga monitor tidak
+pernah berbunyi.
 
-Bukti dari STB:
+Contoh terukur:
 
 ```
-id.zidstore.net   (Cloudflare) -> 104.20.17.32   ping OK    HTTPS 200
-i.id.zidstore.net (origin)     -> 103.191.92.38  ping GAGAL
+app.example.com     (Cloudflare) -> 203.0.113.10    ping OK     HTTPS 200
+origin.example.com  (origin)     -> 198.51.100.25   ping GAGAL
 ```
 
-Cara cepat memeriksa: `whois <IP>`, kalau muncul `CLOUDFLARENET` berarti di
-balik Cloudflare.
+Perhatikan: domain yang di-proxy merespons ping, sedangkan origin aslinya tidak.
+Artinya ping ke domain Cloudflare tidak memberi informasi apa pun tentang kondisi
+server Anda.
 
-Untuk server langsung yang tidak menjalankan web server, ping lebih tepat.
-Contoh di produksi: `i.idX.zidstore.net` gagal HTTP tetapi merespons ping.
+Cara cepat memeriksa: `whois <IP>`. Kalau muncul `CLOUDFLARENET`, berarti di
+balik Cloudflare dan ping tidak tepat.
 
-### Telegram
+Sebaliknya, untuk server langsung yang tidak menjalankan web server, ping justru
+lebih tepat. Gejalanya: HTTP gagal tetapi ping berhasil.
 
-`api.telegram.org` di-resolve NextDNS menjadi IPv6, sedangkan STB tidak punya
-IPv6 yang berfungsi, sehingga pengiriman alert gagal sekitar 60%. Diperbaiki
-dengan `filter_aaaa` di dnsmasq. Hasil: 2/5 menjadi 5/5, dan sejak itu
-`alerts.log` mencatat semua pengiriman berhasil.
+### Alert Telegram gagal karena record AAAA
 
-Perintah yang dipakai:
+Kalau perangkat hanya punya IPv4 sementara resolver mengembalikan record AAAA,
+klien akan mencoba IPv6 lebih dulu dan gagal sebelum jatuh ke IPv4. Terukur
+pada perangkat uji: sekitar 60% pengiriman alert gagal karena sebab ini.
+
+Solusinya menyaring record AAAA di resolver:
 
 ```sh
 uci set dhcp.@dnsmasq[0].filter_aaaa='1'
@@ -154,44 +176,79 @@ uci commit dhcp
 /etc/init.d/dnsmasq restart
 ```
 
-Backup konfigurasi sebelum perubahan ada di STB:
-`/tmp/dhcp-backup-before-aaaa.txt`. Perlu ditinjau ulang kalau IPv6 diaktifkan
-di upstream.
+Perlu ditinjau ulang kalau IPv6 diaktifkan di jaringan tersebut. Pastikan juga
+konfigurasi resolver dicadangkan sebelum diubah.
 
 ### Vantage point prober
 
-Jika prober melaporkan DOWN padahal target sehat, periksa jalur jaringan host
-prober lebih dulu. Bandingkan dengan layanan pemeriksa eksternal multi-node.
-Kalau loss hanya terjadi lokal, masalahnya peering ISP, bukan server atau kode.
+Jika prober melaporkan DOWN padahal target sehat dari tempat lain, periksa jalur
+jaringan host prober lebih dulu. Bandingkan dengan layanan pemeriksa eksternal
+multi-node.
+
+Kalau loss hanya terjadi dari jaringan lokal sementara node eksternal bersih,
+masalahnya ada di peering ISP, bukan di target dan bukan di kode. Mengganti
+protokol (ping ke TCP ke HTTP) tidak akan menolong, karena semua melewati jalur
+yang sama. Yang perlu dipindahkan adalah **lokasi prober**, bukan protokolnya.
+
+### Ukuran file WAL
+
+Dalam mode WAL, berkas `-wal` bisa tumbuh lebih besar dari berkas `.db` sebelum
+checkpoint. Pastikan pekerjaan prune berkala juga menjalankan
+`PRAGMA wal_checkpoint(TRUNCATE)`, karena tanpa itu berkas WAL dapat tumbuh tanpa
+batas dan menghabiskan partisi.
 
 ---
 
-## 4. Yang Masih Tertunda
-
-| Prioritas | Item | Catatan |
-|---|---|---|
-| Rendah | Balasan issue #1 untuk v0.1.4 | Draf sudah disiapkan, tinggal dikirim |
-| Rendah | Keyword check untuk tipe `http` biasa | Sudah tertutup oleh `http_json` bila target mengembalikan JSON |
-| Rendah | 14 warning clippy lama | Semuanya pre-existing, bukan dari perubahan terakhir |
-| Pantau | `SG NEWMEDIA` uptime sekitar 99.6% | Belum diselidiki apakah sisa masalah lama atau baru |
-| Pantau | Ukuran file WAL | Checkpoint tiap 6 jam, pernah lebih besar dari file DB |
-
----
-
-## 5. Verifikasi yang Sudah Dilakukan
+## 4. Verifikasi yang Sudah Dilakukan
 
 - **JSON Query**: 16/16 skenario (cocok, tidak cocok, HTTP 200 dengan body
   error, bukan JSON, path hilang, nested, indeks array, angka, boolean, null,
   objek kosong, dan tipe `http` yang harus tetap UP).
-- **User-Agent**: terkirim di 20/20 request, bisa di-override. Dibuktikan di
-  hardware STB lewat `httpbin.org`: nilai yang diterima persis
-  `UptimePulse/0.1.4 (+https://github.com/zidnyzd/uptime-pulse)`.
-- **Migrasi database**: DB lama mendapat kolom baru, monitor yang ada tidak
-  berubah perilakunya (semua tetap `GET`).
-- **Backup dan restore**: field baru ikut diekspor dan dipulihkan, file backup
+- **User-Agent**: terkirim di 20/20 request, bisa di-override. Dibuktikan pada
+  perangkat ARM64 nyata lewat `httpbin.org`, nilai yang diterima persis
+  `UptimePulse/<versi> (+https://github.com/zidnyzd/uptime-pulse)`.
+- **Migrasi database**: database lama mendapat kolom baru secara otomatis,
+  monitor yang sudah ada tidak berubah perilakunya (semua tetap `GET`).
+- **Backup dan restore**: field baru ikut diekspor dan dipulihkan, berkas backup
   versi lama tetap bisa direstore.
 - **Keamanan**: header dan body yang memuat kredensial tidak pernah muncul di
   `/api/public/summary`. Diuji dengan monitor publik yang memuat token unik.
-- **Modal**: bisa di-scroll pada 320x480, 320x568, 360x640, 375x667, 390x844,
-  414x896, 768x1024, dan 1440x900.
-- **clippy**: tetap 14 warning, tidak ada yang baru.
+- **Modal**: tombol aksi terjangkau pada 320x480, 320x568, 360x640, 375x667,
+  390x844, 414x896, 768x1024, dan 1440x900.
+- **clippy**: 14 warning, semuanya pre-existing dan bukan dari perubahan terakhir.
+
+---
+
+## 5. Keterbatasan yang Diketahui
+
+| Item | Catatan |
+|---|---|
+| Tipe `http` tidak memeriksa isi respons | Gunakan `http_json` bila target mengembalikan JSON |
+| Perbandingan JSON bersifat persis | Tidak ada mode "mengandung"; nilai harus sama persis |
+| 14 warning clippy | Belum dibersihkan, semuanya pre-existing |
+| Ukuran berkas WAL | Bergantung pada checkpoint berkala, perlu dipantau |
+
+### Pelajaran seputar pengujian UI
+
+Dua kesalahan berikut pernah lolos ke rilis dan baru ketahuan dari laporan
+pengguna. Keduanya punya akar yang sama: menguji fitur baru tetapi melewatkan
+regresi tata letak.
+
+1. **Memeriksa overflow horizontal saja tidak cukup.** Tidak adanya scroll ke
+   samping tidak membuktikan tombol Simpan bisa ditekan. Yang perlu diuji adalah
+   keterjangkauan vertikal: setelah container di-scroll maksimum, apakah tombol
+   aksi benar-benar berada di dalam viewport.
+
+2. **Menambah field form adalah perubahan tata letak.** Setiap field menambah
+   tinggi modal. Ukur selisihnya, dan uji pada viewport yang lebih pendek dari
+   konten yang dikirim. Layar 320x480 paling cepat memunculkan masalah.
+
+3. **`align-items: center` tanpa overflow menjebak.** Kontainer flex yang
+   memusatkan anaknya tanpa overflow tidak menghasilkan area scroll. Konten yang
+   lebih tinggi dari layar akan terpotong ke atas dan ke bawah, dan tidak ada
+   gesture yang bisa menjangkaunya. Pengguna melaporkannya sebagai "tidak bisa
+   scroll", padahal penyebabnya tidak ada container scroll sama sekali.
+
+4. **Perubahan pada kelas tata letak bersama adalah kandidat regresi di
+   mana-mana.** Menyentuh `.modal-overlay` memengaruhi semua modal. "Fitur baru
+   saya jalan" bukan bukti yang cukup.
