@@ -13,8 +13,8 @@ dokumentasi RFC 5737) supaya tidak memuat detail infrastruktur siapa pun.
 
 | Item | Nilai |
 |---|---|
-| Versi terbaru | `v0.1.4` |
-| Commit `master` | `a782a52` |
+| Versi terbaru | `v0.1.5` |
+| Commit `master` | `d421d0b` |
 | Terakhir diperbarui | 19 September 2026 |
 
 Catatan kondisi lengkap (perangkat, PID, jalur database, daftar backup, dan
@@ -72,6 +72,28 @@ Bandingkan PID sebelum dan sesudah.
 ---
 
 ## 2. Riwayat Perubahan
+
+### v0.1.5: Downsampling heartbeat harian
+
+Tabel `heartbeats` tumbuh sekitar 24 ribu baris per hari untuk 17 monitor,
+dan index memakan 63% ukuran file. Proyeksi retensi 90 hari mencapai ratusan
+MB, terlalu besar untuk flash perangkat kecil.
+
+- Tabel baru `heartbeat_daily`: satu baris per monitor per hari berisi
+  `total_checks`, `up_checks`, dan `avg_latency_ms`.
+- Rollup otomatis tiap prune 6 jam, idempoten via UPSERT, hanya untuk hari
+  kalender yang sudah lewat penuh. Hari berjalan tidak di-rollup.
+- Data mentah hanya 7 hari, agregat harian ikut `--retention` (default 90).
+- Timeline 90 hari tetap lengkap: hari tua dibaca dari agregat, 7 hari
+  terakhir dihitung ulang dari data mentah. Bucket per jam, statistik 24 jam,
+  dan ringkasan publik tetap dari data mentah.
+- Reset statistik ikut menghapus agregat harian monitor tersebut.
+- Endpoint prune manual mendukung `?vacuum=true` eksplisit. Worker otomatis
+  tidak pernah VACUUM agar umur eMMC terjaga.
+- `DbStats` bertambah `total_daily_rows`.
+
+Diukur pada salinan database produksi: 53 ribu baris mentah 4 hari menjadi
+39 baris agregat. Proyeksi 90 hari turun dari ratusan MB menjadi belasan MB.
 
 ### v0.1.4: User-Agent, HTTP JSON Query, perbaikan modal
 
@@ -231,6 +253,9 @@ batas dan menghabiskan partisi.
 - **Modal**: tombol aksi terjangkau pada 320x480, 320x568, 360x640, 375x667,
   390x844, 414x896, 768x1024, dan 1440x900.
 - **clippy**: 13 warning, semuanya pre-existing dan bukan dari perubahan terakhir.
+- **Downsampling**: rollup 39 baris agregat dari 53 ribu baris mentah, cek
+  1 monitor 1 hari (1393/1392/184,3) sama persis dengan data mentah. Migrasi
+  tabel otomatis saat start, timeline 90 hari tetap utuh setelah deploy.
 
 ---
 
@@ -241,7 +266,7 @@ batas dan menghabiskan partisi.
 | Tipe `http` tidak memeriksa isi respons | Gunakan `http_json` bila target mengembalikan JSON |
 | Perbandingan JSON bersifat persis | Tidak ada mode "mengandung"; nilai harus sama persis |
 | 13 warning clippy | Belum dibersihkan, semuanya pre-existing |
-| Ukuran berkas WAL | Bergantung pada checkpoint berkala, perlu dipantau |
+| Pertumbuhan database | Sejak v0.1.5 data mentah hanya 7 hari, sisanya agregat harian ikut retensi; WAL tetap butuh checkpoint berkala |
 
 ### Pelajaran seputar pengujian UI
 
