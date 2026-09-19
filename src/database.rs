@@ -150,6 +150,14 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
         let _ = conn.execute("ALTER TABLE monitors ADD COLUMN expected_value TEXT NOT NULL DEFAULT ''", []);
     }
 
+    // Migrasi operator pembanding JSON (v0.1.6) jika belum ada. Default kosong
+    // diperlakukan sebagai "==" oleh JsonOperator::parse, sehingga monitor
+    // http_json yang sudah ada berjalan persis seperti sebelumnya.
+    let has_json_operator = conn.prepare("SELECT json_operator FROM monitors LIMIT 1").is_ok();
+    if !has_json_operator {
+        let _ = conn.execute("ALTER TABLE monitors ADD COLUMN json_operator TEXT NOT NULL DEFAULT ''", []);
+    }
+
     Ok(Arc::new(Mutex::new(conn)))
 }
 

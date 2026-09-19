@@ -26,6 +26,10 @@ pub struct BackupData {
     pub app: String,
     pub exported_at: String,
     pub monitors: Vec<BackupMonitorItem>,
+    // Backup yang dibuat tool lain atau diedit tangan bisa saja tidak memuat
+    // settings; tanpa default, seluruh restore ditolak hanya karena bagian itu
+    // tidak ada.
+    #[serde(default)]
     pub settings: HashMap<String, String>,
 }
 
@@ -40,6 +44,10 @@ pub struct BackupMonitorItem {
     pub max_retries: Option<i64>,
     #[serde(default = "default_item_is_public")]
     pub is_public: Option<bool>,
+    // `is_active` tidak punya default di versi lama. Backup yang dibuat tool
+    // lain (atau diedit tangan) bisa saja tidak memuatnya; tanpa default,
+    // seluruh restore gagal hanya karena satu flag boolean hilang.
+    #[serde(default = "default_item_is_active")]
     pub is_active: bool,
     #[serde(default)]
     pub sort_order: Option<i64>,
@@ -58,6 +66,10 @@ pub struct BackupMonitorItem {
     pub json_path: String,
     #[serde(default)]
     pub expected_value: String,
+    // Operator pembanding JSON (v0.1.6). Backup lama tanpa field ini tetap
+    // dipulihkan sebagai "==" karena default-nya kosong.
+    #[serde(default)]
+    pub json_operator: String,
 }
 
 fn default_item_retries() -> Option<i64> {
@@ -66,6 +78,10 @@ fn default_item_retries() -> Option<i64> {
 
 fn default_item_is_public() -> Option<bool> {
     Some(true)
+}
+
+fn default_item_is_active() -> bool {
+    true
 }
 
 fn default_item_method() -> String {
@@ -108,6 +124,7 @@ pub async fn export_json(
             body: m.body,
             json_path: m.json_path,
             expected_value: m.expected_value,
+            json_operator: m.json_operator,
         })
         .collect();
 
@@ -241,9 +258,9 @@ pub async fn restore_json(
             let method = crate::models::monitor::normalize_method(&m.method);
 
             tx.execute(
-                "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, sort_order, method, headers, body, json_path, expected_value)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8, 'pending', ?9, ?10, ?11, ?12, ?13, ?14)",
-                params![m.name, m.monitor_type, m.target, interval, timeout, max_retries, is_act, is_pub, sort_order, method, m.headers, m.body, m.json_path, m.expected_value],
+                "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, sort_order, method, headers, body, json_path, expected_value, json_operator)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8, 'pending', ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                params![m.name, m.monitor_type, m.target, interval, timeout, max_retries, is_act, is_pub, sort_order, method, m.headers, m.body, m.json_path, m.expected_value, m.json_operator],
             )
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))))?;
 

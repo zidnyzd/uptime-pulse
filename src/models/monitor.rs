@@ -29,6 +29,8 @@ pub struct Monitor {
     // Assertion isi respons untuk tipe "http_json"
     pub json_path: String,    // Dot notation, mis. "status" atau "data.health"
     pub expected_value: String, // Nilai yang diharapkan pada json_path
+    // Operator pembanding: == (default), !=, contains, not_contains, >, >=, <, <=
+    pub json_operator: String,
 }
 
 // DTO untuk validasi payload input pembuatan monitor baru
@@ -55,6 +57,8 @@ pub struct CreateMonitorInput {
     pub json_path: String,
     #[serde(default)]
     pub expected_value: String,
+    #[serde(default)]
+    pub json_operator: String,
 }
 
 // DTO untuk pembaruan monitor yang sudah ada
@@ -79,6 +83,8 @@ pub struct UpdateMonitorInput {
     pub json_path: String,
     #[serde(default)]
     pub expected_value: String,
+    #[serde(default)]
+    pub json_operator: String,
 }
 
 fn default_interval() -> i64 { 60 }
@@ -107,7 +113,7 @@ impl Monitor {
     pub async fn all(db: &DbPool) -> Result<Vec<Monitor>> {
         let conn = db.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at, sort_order, method, headers, body, json_path, expected_value
+            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at, sort_order, method, headers, body, json_path, expected_value, json_operator
              FROM monitors ORDER BY sort_order ASC, id ASC"
         )?;
 
@@ -133,6 +139,7 @@ impl Monitor {
                 body: row.get(17)?,
                 json_path: row.get(18)?,
                 expected_value: row.get(19)?,
+                json_operator: row.get(20)?,
             })
         })?;
 
@@ -147,7 +154,7 @@ impl Monitor {
     pub async fn find(db: &DbPool, id: i64) -> Result<Option<Monitor>> {
         let conn = db.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at, sort_order, method, headers, body, json_path, expected_value
+            "SELECT id, name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_active, is_public, status, last_latency_ms, last_check_at, created_at, sort_order, method, headers, body, json_path, expected_value, json_operator
              FROM monitors WHERE id = ?1"
         )?;
 
@@ -173,6 +180,7 @@ impl Monitor {
                 body: row.get(17)?,
                 json_path: row.get(18)?,
                 expected_value: row.get(19)?,
+                json_operator: row.get(20)?,
             })
         });
 
@@ -190,9 +198,9 @@ impl Monitor {
         let is_public_int = if input.is_public { 1 } else { 0 };
         let method = normalize_method(&input.method);
         conn.execute(
-            "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_public, sort_order, method, headers, body, json_path, expected_value)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM monitors), ?8, ?9, ?10, ?11, ?12)",
-            params![input.name, input.monitor_type, input.target, input.interval_sec, input.timeout_sec, max_retries, is_public_int, method, input.headers, input.body, input.json_path, input.expected_value],
+            "INSERT INTO monitors (name, monitor_type, target, interval_sec, timeout_sec, max_retries, consecutive_fails, is_public, sort_order, method, headers, body, json_path, expected_value, json_operator)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM monitors), ?8, ?9, ?10, ?11, ?12, ?13)",
+            params![input.name, input.monitor_type, input.target, input.interval_sec, input.timeout_sec, max_retries, is_public_int, method, input.headers, input.body, input.json_path, input.expected_value, input.json_operator],
         )?;
         Ok(conn.last_insert_rowid())
     }
@@ -274,9 +282,9 @@ impl Monitor {
 
         let affected = conn.execute(
             "UPDATE monitors 
-             SET name = ?1, monitor_type = ?2, target = ?3, interval_sec = ?4, timeout_sec = ?5, max_retries = ?6, is_public = ?7, method = ?8, headers = ?9, body = ?10, json_path = ?11, expected_value = ?12
-             WHERE id = ?13",
-            params![input.name, input.monitor_type, input.target, interval_sec, timeout_sec, max_retries, is_public_int, method, input.headers, input.body, input.json_path, input.expected_value, id],
+             SET name = ?1, monitor_type = ?2, target = ?3, interval_sec = ?4, timeout_sec = ?5, max_retries = ?6, is_public = ?7, method = ?8, headers = ?9, body = ?10, json_path = ?11, expected_value = ?12, json_operator = ?13
+             WHERE id = ?14",
+            params![input.name, input.monitor_type, input.target, interval_sec, timeout_sec, max_retries, is_public_int, method, input.headers, input.body, input.json_path, input.expected_value, input.json_operator, id],
         )?;
         Ok(affected > 0)
     }
