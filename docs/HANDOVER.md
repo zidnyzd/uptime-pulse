@@ -13,7 +13,7 @@ dokumentasi RFC 5737) supaya tidak memuat detail infrastruktur siapa pun.
 
 | Item | Nilai |
 |---|---|
-| Versi terbaru | `v0.1.5` |
+| Versi terbaru | `v0.1.6` |
 | Commit `master` | `d421d0b` |
 | Terakhir diperbarui | 19 September 2026 |
 
@@ -72,6 +72,62 @@ Bandingkan PID sebelum dan sesudah.
 ---
 
 ## 2. Riwayat Perubahan
+
+### v0.1.6: Assertion JSON lanjutan, zona waktu notifikasi, umpan balik simpan
+
+Empat perbaikan yang semuanya berasal dari laporan pengguna di issue #1.
+
+**Assertion JSON: wildcard array dan operator pembanding.** Sebelumnya
+perbandingan hanya "sama persis" dan path ke elemen array wajib memakai indeks
+angka, sehingga respons berupa array di root harus ditulis `0.status` dan
+pertanyaan seperti "apakah pemakaian di atas 90%" tidak bisa diungkapkan.
+
+- Path kini mendukung wildcard: `items[*].state`, `items.*.state`, `items[].state`,
+  plus indeks eksplisit `items[0].state` dan array di root `[*].status`.
+- Operator baru: `==`, `!=`, `contains`, `not_contains`, `>`, `>=`, `<`, `<=`.
+- Perbandingan teks mengabaikan besar-kecil huruf, jadi `ok` cocok dengan `OK`.
+- Operator numerik menolak nilai non-angka dengan pesan yang menjelaskan
+  masalahnya, bukan gagal diam-diam.
+- Untuk wildcard, SETIAP nilai yang cocok harus memenuhi operator. Satu elemen
+  menyimpang sudah cukup menandai target DOWN, dan pesan errornya menyebut
+  nilai ke berapa yang gagal. Untuk pertanyaan "tidak boleh ada yang error",
+  gunakan `not_contains`.
+- Monitor `http_json` yang sudah ada tetap berjalan persis seperti sebelumnya:
+  kolom baru default kosong dan diperlakukan sebagai `==`.
+
+**Zona waktu notifikasi Telegram.** Sebelumnya label `WIB` ditulis tetap di
+dalam kode dan nilainya diambil dari waktu lokal sistem operasi, bukan dari
+zona waktu yang dipilih di aplikasi. Pada instalasi dengan OS UTC sementara
+aplikasi diset WIB, notifikasi menampilkan waktu 7 jam lebih awal dengan label
+`WIB` yang salah.
+
+- Offset zona aplikasi dan singkatannya dihitung di browser (satu-satunya
+  tempat dengan basis data zona waktu lengkap) lalu disinkronkan ke server
+  saat admin masuk atau menyimpan pengaturan branding.
+- Backend menggeser stempel waktu sebesar selisih offset aplikasi terhadap
+  offset OS, sehingga benar baik ketika OS sudah sewaktu-waktu sama maupun
+  berbeda. Bila belum pernah disinkronkan, perilaku lama dipertahankan.
+- Label tidak lagi dipaksa `WIB`: memakai singkatan zona terpilih, atau
+  turunan dari offset (`UTC+7`, `UTC+5:30`) bila singkatan belum ada.
+
+**Versi di sidebar.** Label versi sebelumnya ditulis tetap `v0.1.0` di HTML
+dan tidak pernah ikut naik saat rilis. Sekarang dibaca dari binary yang
+sedang berjalan lewat `GET /api/system/version`, dan sidebar menandai bila ada
+rilis lebih baru. Pengecekan rilis memakai cache 6 jam agar tidak menghabiskan
+kuota GitHub API, dan kegagalan jaringan tidak mengganggu konsol admin.
+
+**Umpan balik setelah menyimpan monitor.** Probe pertama dijalankan di latar
+belakang, jadi respons penyimpanan tidak memuat hasilnya dan admin hanya
+melihat pesan "berhasil ditambahkan" tanpa tahu status nyatanya. Sekarang
+hasil probe pertama dilaporkan lewat toast, misalnya
+`Monitor "API" saved — HTTP 200 • 145 ms`, atau pesan kegagalan bila target
+belum bisa dihubungi. Bila hasilnya tidak sampai (mis. koneksi SSE terputus),
+admin diberi tahu apa adanya, bukan dibiarkan menunggu.
+
+**Perbaikan tambahan pada pemulihan backup.** Restore sekarang menerima file
+backup yang tidak memuat `is_active`, `settings`, atau field `json_operator`
+(mis. backup lama atau file yang diedit tangan) alih-alih menolak seluruh
+proses karena satu field hilang.
 
 ### v0.1.5: Downsampling heartbeat harian
 

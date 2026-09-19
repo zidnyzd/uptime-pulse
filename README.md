@@ -31,13 +31,14 @@ Frontend web views (HTML, CSS, JS) are bundled directly into the executable usin
 ## ✨ Features
 
 - **Strict MVC Architecture:** Clean separation of concerns across `models`, `views`, and `controllers` in idiomatic Rust.
-- **Multi-Protocol Monitoring:** Supports **ICMP Ping**, **HTTP / HTTPS** (powered by pure-Rust `rustls`), **HTTP JSON Query** (`http_json` asserts on response body via `json_path` + exact-match `expected_value`), and **TCP port** handshakes.
+- **Multi-Protocol Monitoring:** Supports **ICMP Ping**, **HTTP / HTTPS** (powered by pure-Rust `rustls`), **HTTP JSON Query** (`http_json` asserts on the response body via `json_path` + `expected_value` with comparison operators), and **TCP port** handshakes.
+- **Flexible JSON Assertions:** `json_path` supports dot notation, array indexes, and array wildcards (`items[*].state`, `items.*.state`, `items[]`, root arrays via `[*].status`). Comparison operators: `==`, `!=`, `contains`, `not_contains`, `>`, `>=`, `<`, `<=`. Text comparisons are case-insensitive; numeric operators reject non-numeric values with an explanatory message. With a wildcard, every matched value must satisfy the operator, and the error names which value failed.
 - **Configurable HTTP Requests:** Per-monitor method (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS), custom headers (`Name: Value` per line, CR/LF rejected), and request body (defaults to `Content-Type: application/json`). Identifies itself with `User-Agent: UptimePulse/<version> (+repo URL)`, overridable per monitor.
 - **Advanced Anti-False Alarm Engine:** Multi-packet ping (`-c 2`) with WAN jitter tolerance, customizable retries, and staggered scheduling to prevent thundering herd spikes.
 - **Linear/Vercel-Inspired UI:** Borderless Unified Grouped List status page, 90-bar fine micro-timeline, warm dark charcoal theme (`#202020` / `#282828`), and contrast-audited light mode.
 - **Interactive Monitor Reordering:** Native HTML5 Drag & Drop ordering on desktop with dedicated 6-dot grip handles, alongside responsive up/down touch arrow buttons on mobile devices.
 - **Flash Storage Safety:** SQLite with WAL mode, 5000ms busy timeout, daily downsampling (raw probes kept 7 days, daily aggregates follow `--retention`, default 90), automatic pruning every 6 hours with WAL checkpoint, and manual `?vacuum=true` only (auto VACUUM never runs, to protect eMMC lifespan).
-- **Instant Telegram Alerts:** Automated incident logging, recovery duration tracking, forum topic/thread support, persistent file log (`alerts.log` next to `--db`, 512 KB rotation) because router syslog is RAM-only, and dynamic global timezone formatting (WIB, WITA, WIT, GMT, etc.).
+- **Instant Telegram Alerts:** Automated incident logging, recovery duration tracking, forum topic/thread support, persistent file log (`alerts.log` next to `--db`, 512 KB rotation) because router syslog is RAM-only, and global timezone formatting that follows the configured app timezone in both the UI and Telegram alerts (WIB, WITA, WIT, GMT, etc.).
 - **Security Hardened:** Built-in in-memory rate limiting (5 failed attempts / 5 mins), security headers (`nosniff`, `SAMEORIGIN`, `strict-origin-when-cross-origin`), and minimum 8-character password enforcement.
 - **Full Backup & Restore:** Export and import system state via structured JSON or download raw SQLite `.db` snapshots.
 
@@ -46,12 +47,12 @@ Frontend web views (HTML, CSS, JS) are bundled directly into the executable usin
 | Target | Use | Why |
 |---|---|---|
 | Web service / API | `http` / `https` | Checks real status code (2xx/3xx = UP) |
-| JSON API that returns 200 on errors | `http_json` | Asserts `json_path` equals `expected_value` (exact match); empty expected means path must exist |
+| JSON API that returns 200 on errors | `http_json` | Asserts `json_path` against `expected_value` using an operator (`==` by default); empty expected means the path must exist |
 | Host alive, no web server | `ping` | Proves L3 reachability only |
 | Raw port (SSH, DB, custom) | `tcp` | Proves handshake on `host:port` |
 | Hostname behind a CDN/proxy | `http`, never `ping` | Ping measures the CDN edge, not your origin; the origin can be fully down while ping reports 0% loss |
 
-Limits, stated honestly: plain `http` does not inspect the body; `http_json` comparison is exact (no contains mode); non-JSON error bodies (HTML maintenance page, plain-text error) have no assertion yet.
+Limits, stated honestly: plain `http` does not inspect the body; `http_json` requires the response to be valid JSON (an HTML maintenance page or plain-text error still has no assertion); comparisons are text-based unless a numeric operator is used.
 
 ---
 
