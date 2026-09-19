@@ -1,2 +1,4 @@
 /target
 uptime.db*
+# Catatan operasional lokal (memuat detail infrastruktur, jangan ikut ke repo publik)
+.hermes/

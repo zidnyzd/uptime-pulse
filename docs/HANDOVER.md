@@ -9,6 +9,21 @@ dokumentasi RFC 5737) supaya tidak memuat detail infrastruktur siapa pun.
 
 ---
 
+## Status Rilis
+
+| Item | Nilai |
+|---|---|
+| Versi terbaru | `v0.1.4` |
+| Commit `master` | `a782a52` |
+| Terakhir diperbarui | 19 September 2026 |
+
+Catatan kondisi lengkap (perangkat, PID, jalur database, daftar backup, dan
+hal yang masih tertunda) sengaja tidak ada di sini karena memuat detail
+infrastruktur. Berkas itu ada di `.hermes/HANDOVER.local.md` yang sudah masuk
+`.gitignore`, jadi tidak ikut ke repo publik ini.
+
+---
+
 ## 1. Alur Deploy
 
 UptimePulse adalah binary statis tunggal, jadi deployment tidak memerlukan
