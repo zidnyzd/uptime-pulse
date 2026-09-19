@@ -196,16 +196,18 @@ pub async fn check(
 }
 
 // POST /api/monitors/{id}/reset - Mereset seluruh statistik monitor dari awal
-// (hapus heartbeat + insiden, nolkan gagal beruntun, status kembali 'pending')
+// (hapus heartbeat mentah + agregat harian + insiden, nolkan gagal beruntun,
+// status kembali 'pending')
 pub async fn reset(
     State(state): State<Arc<MonitorControllerState>>,
     Path(id): Path<i64>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     match Monitor::reset_stats(&state.db, id).await {
-        Ok(Some((hb, inc))) => Ok(Json(json!({
+        Ok(Some((hb, daily, inc))) => Ok(Json(json!({
             "success": true,
-            "message": format!("Statistik direset: {} heartbeat dan {} insiden dihapus", hb, inc),
+            "message": format!("Statistik direset: {} heartbeat, {} baris agregat harian, dan {} insiden dihapus", hb, daily, inc),
             "heartbeats_deleted": hb,
+            "daily_rows_deleted": daily,
             "incidents_deleted": inc,
         }))),
         Ok(None) => Err((StatusCode::NOT_FOUND, "Monitor tidak ditemukan".to_string())),

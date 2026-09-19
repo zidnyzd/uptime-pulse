@@ -218,9 +218,10 @@ impl Monitor {
         Ok(affected > 0)
     }
 
-    // Mereset seluruh statistik monitor dari awal: hapus heartbeat + insiden,
-    // nolkan hitungan gagal beruntun, dan kembalikan status ke 'pending'
-    pub async fn reset_stats(db: &DbPool, id: i64) -> Result<Option<(usize, usize)>> {
+    // Mereset seluruh statistik monitor dari awal: hapus heartbeat mentah,
+    // agregat harian, dan insiden, lalu nolkan hitungan gagal beruntun dan
+    // kembalikan status ke 'pending'
+    pub async fn reset_stats(db: &DbPool, id: i64) -> Result<Option<(usize, usize, usize)>> {
         let conn = db.lock().await;
         let exists: i64 = conn.query_row(
             "SELECT COUNT(*) FROM monitors WHERE id = ?1",
@@ -232,6 +233,8 @@ impl Monitor {
         }
         let heartbeats_deleted =
             conn.execute("DELETE FROM heartbeats WHERE monitor_id = ?1", params![id])?;
+        let daily_deleted =
+            conn.execute("DELETE FROM heartbeat_daily WHERE monitor_id = ?1", params![id])?;
         let incidents_deleted =
             conn.execute("DELETE FROM incidents WHERE monitor_id = ?1", params![id])?;
         conn.execute(
@@ -241,7 +244,7 @@ impl Monitor {
              WHERE id = ?1",
             params![id],
         )?;
-        Ok(Some((heartbeats_deleted, incidents_deleted)))
+        Ok(Some((heartbeats_deleted, daily_deleted, incidents_deleted)))
     }
 
     // Mengubah status aktif (pause / resume)

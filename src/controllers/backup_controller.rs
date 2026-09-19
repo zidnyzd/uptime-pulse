@@ -287,21 +287,33 @@ pub async fn alert_log(
     }))
 }
 
-/// POST /api/backup/prune - Trigger manual pruning dan WAL checkpoint oleh admin
+/// POST /api/backup/prune - Trigger manual pruning oleh admin.
+/// Menjalankan rollup harian + hapus data lewat retensi + checkpoint WAL.
+/// VACUUM hanya jalan bila query `?vacuum=true` diberikan eksplisit, karena
+/// rewrite seluruh file DB mahal di flash eMMC dan memperpendek umurnya.
 pub async fn prune_db(
     State(state): State<Arc<BackupControllerState>>,
+    axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let res = crate::database::prune_old_records(&state.db, state.retention_days)
+    let vacuum = params
+        .get("vacuum")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+    let res = crate::database::prune_old_records(&state.db, state.retention_days, vacuum)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     Ok(Json(json!({
         "status": "success",
         "message": format!(
-            "Pembersihan database selesai: {} riwayat heartbeat lama dan {} session kedaluwarsa dihapus. File WAL telah dirampingkan.",
-            res.heartbeats_deleted, res.sessions_deleted
+            "Pembersihan database selesai: {} baris agregat harian ditulis, {} riwayat heartbeat mentah, {} agregat harian kedaluwarsa, dan {} session kedaluwarsa dihapus. File WAL telah dirampingkan.{}.",
+            res.daily_rows_upserted, res.heartbeats_deleted, res.daily_rows_deleted, res.sessions_deleted,
+            if res.vacuumed { " VACUUM selesai" } else { "" }
         ),
+        "daily_rows_upserted": res.daily_rows_upserted,
+        "daily_rows_deleted": res.daily_rows_deleted,
         "heartbeats_deleted": res.heartbeats_deleted,
         "sessions_deleted": res.sessions_deleted,
+        "vacuumed": res.vacuumed,
     })))
 }

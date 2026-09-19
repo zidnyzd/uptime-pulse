@@ -36,12 +36,19 @@ pub fn start_scheduler(db: DbPool, event_tx: EventSender, retention_days: u32) {
     tokio::spawn(async move {
         info!("Auto-pruning worker initialized (Retention: {} days).", retention_days);
         loop {
-            match crate::database::prune_old_records(&db_prune, retention_days).await {
+            // Worker otomatis tidak pernah VACUUM (mahal di eMMC): hanya rollup,
+            // hapus data lewat retensi, dan checkpoint WAL.
+            match crate::database::prune_old_records(&db_prune, retention_days, false).await {
                 Ok(res) => {
-                    if res.heartbeats_deleted > 0 || res.sessions_deleted > 0 {
+                    if res.heartbeats_deleted > 0
+                        || res.sessions_deleted > 0
+                        || res.daily_rows_upserted > 0
+                    {
                         info!(
-                            "🧹 Auto-prune executed: {} old heartbeats, {} expired sessions purged. WAL truncated.",
-                            res.heartbeats_deleted, res.sessions_deleted
+                            "Auto-prune executed: {} daily rows rolled up, {} old heartbeats, {} expired sessions purged. WAL truncated.",
+                            res.daily_rows_upserted,
+                            res.heartbeats_deleted,
+                            res.sessions_deleted
                         );
                     }
                 }

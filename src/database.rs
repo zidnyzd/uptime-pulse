@@ -86,10 +86,24 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
              value TEXT NOT NULL
          );
 
+         -- Tabel agregat harian hasil downsampling (satu baris per monitor per hari).
+         -- Diisi oleh rollup sebelum heartbeats mentah berumur >7 hari dihapus,
+         -- sehingga timeline panjang tetap lengkap dengan biaya storage kecil.
+         CREATE TABLE IF NOT EXISTS heartbeat_daily (
+             monitor_id INTEGER NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,
+             day TEXT NOT NULL,
+             total_checks INTEGER NOT NULL,
+             up_checks INTEGER NOT NULL,
+             avg_latency_ms REAL,
+             PRIMARY KEY (monitor_id, day)
+         );
+
          CREATE INDEX IF NOT EXISTS idx_hb_mon_time ON heartbeats(monitor_id, checked_at DESC);
          -- Index terpisah untuk prune global (DELETE ... WHERE checked_at < ?) yang
          -- tidak menyebut monitor_id, agar tidak full-table-scan di STB low-power.
          CREATE INDEX IF NOT EXISTS idx_hb_time ON heartbeats(checked_at);
+         -- Index untuk hapus agregat harian di luar retensi panjang per hari.
+         CREATE INDEX IF NOT EXISTS idx_daily_day ON heartbeat_daily(day);
          CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
          CREATE INDEX IF NOT EXISTS idx_incidents_mon ON incidents(monitor_id, started_at DESC);
          "
@@ -141,8 +155,11 @@ pub fn init_db(db_path: &str) -> Result<DbPool> {
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct PruneResult {
+    pub daily_rows_upserted: usize,
+    pub daily_rows_deleted: usize,
     pub heartbeats_deleted: usize,
     pub sessions_deleted: usize,
+    pub vacuumed: bool,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -150,6 +167,7 @@ pub struct DbStats {
     pub db_size_bytes: u64,
     pub wal_size_bytes: u64,
     pub total_heartbeats: i64,
+    pub total_daily_rows: i64,
     pub total_monitors: i64,
     pub total_incidents: i64,
     pub total_sessions: i64,
@@ -157,29 +175,93 @@ pub struct DbStats {
     pub db_path: String,
 }
 
-/// Menghapus log riwayat lama sesuai batas hari retensi dan merampingkan WAL SQLite
-pub async fn prune_old_records(db: &DbPool, retention_days: u32) -> Result<PruneResult> {
-    let conn = db.lock().await;
-    let threshold_modifier = format!("-{} days", retention_days);
+// Batas umur data mentah sebelum di-rollup ke agregat harian, dalam hari.
+// Dipatok 7 hari (bukan mengikuti --retention) agar timeline 24 jam (detail
+// monitor, ringkasan publik, bucket per jam) selalu punya data mentah penuh
+// sementara data lama diringkas ke heartbeat_daily. --retention tetap mengatur
+// berapa lama agregat harian disimpan.
+pub const RAW_HEARTBEAT_RETENTION_DAYS: u32 = 7;
 
-    // Hapus log heartbeat yang melebihi batas retensi
+// Merollup hari kalender yang sudah lewat penuh dari heartbeats mentah ke
+// heartbeat_daily (INSERT ... ON CONFLICT DO UPDATE).
+// Hanya hari sebelum hari ini yang di-rollup: hari ini masih berjalan dan
+// baris agregatnya belum final. Penghapusan heartbeats mentah dilakukan
+// terpisah oleh prune (langkah 2) agar rollup tetap bisa diuji mandiri.
+// Mengembalikan jumlah baris harian yang ditulis.
+pub fn rollup_daily_aggregates(conn: &rusqlite::Connection) -> Result<usize> {
+    let affected = conn.execute(
+        "INSERT INTO heartbeat_daily (monitor_id, day, total_checks, up_checks, avg_latency_ms)
+         SELECT monitor_id,
+                date(checked_at),
+                COUNT(*),
+                SUM(CASE WHEN is_up = 1 THEN 1 ELSE 0 END),
+                AVG(CASE WHEN is_up = 1 THEN latency_ms ELSE NULL END)
+         FROM heartbeats
+         WHERE date(checked_at) < date('now', 'localtime')
+         GROUP BY monitor_id, date(checked_at)
+         ON CONFLICT(monitor_id, day) DO UPDATE SET
+             total_checks = excluded.total_checks,
+             up_checks = excluded.up_checks,
+             avg_latency_ms = excluded.avg_latency_ms",
+        [],
+    )?;
+    Ok(affected)
+}
+
+/// Menghapus log riwayat lama sesuai batas retensi dan merampingkan WAL SQLite.
+///
+/// Urutan kerja: (1) rollup hari penuh ke heartbeat_daily, (2) hapus heartbeat
+/// mentah >7 hari, (3) hapus agregat harian di luar retention_days, (4) hapus
+/// session expired, (5) checkpoint WAL. VACUUM TIDAK pernah jalan otomatis di
+/// sini karena mahal di flash eMMC; hanya bila `vacuum` diminta eksplisit
+/// (endpoint prune manual).
+pub async fn prune_old_records(
+    db: &DbPool,
+    retention_days: u32,
+    vacuum: bool,
+) -> Result<PruneResult> {
+    let conn = db.lock().await;
+
+    // Langkah 1: ringkas hari penuh ke agregat harian (idempoten via UPSERT)
+    let daily_rows_upserted = rollup_daily_aggregates(&conn)?;
+
+    // Langkah 2: hapus log heartbeat mentah yang melebihi batas 7 hari
+    let raw_threshold = format!("-{} days", RAW_HEARTBEAT_RETENTION_DAYS);
     let heartbeats_deleted = conn.execute(
         "DELETE FROM heartbeats WHERE checked_at < datetime('now', 'localtime', ?)",
-        [&threshold_modifier],
+        [&raw_threshold],
     )?;
 
-    // Hapus session login yang sudah expired
+    // Langkah 3: hapus agregat harian di luar retensi panjang
+    let daily_threshold = format!("-{} days", retention_days);
+    let daily_rows_deleted = conn.execute(
+        "DELETE FROM heartbeat_daily WHERE day < date('now', 'localtime', ?)",
+        [&daily_threshold],
+    )?;
+
+    // Langkah 4: hapus session login yang sudah expired
     let sessions_deleted = conn.execute(
         "DELETE FROM sessions WHERE expires_at < datetime('now', 'localtime')",
         [],
     )?;
 
-    // Rampingkan WAL log ke file database utama untuk menghemat ruang flash OpenWrt
+    // Langkah 5: rampingkan WAL log ke file database utama untuk menghemat ruang flash OpenWrt
     let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
 
+    // Langkah 6 (opsional, manual saja): VACUUM untuk mereklamasi halaman kosong.
+    // Sengaja tidak otomatis karena rewrite seluruh file DB memperpendek umur eMMC.
+    let vacuumed = if vacuum {
+        conn.execute_batch("VACUUM;").is_ok()
+    } else {
+        false
+    };
+
     Ok(PruneResult {
+        daily_rows_upserted,
+        daily_rows_deleted,
         heartbeats_deleted,
         sessions_deleted,
+        vacuumed,
     })
 }
 
@@ -194,6 +276,12 @@ pub async fn get_db_stats(db: &DbPool, db_path: &str, retention_days: u32) -> Re
 
     let total_heartbeats: i64 = conn
         .query_row("SELECT COUNT(*) FROM heartbeats", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    let total_daily_rows: i64 = conn
+        .query_row("SELECT COUNT(*) FROM heartbeat_daily", [], |row| {
+            row.get(0)
+        })
         .unwrap_or(0);
 
     let total_monitors: i64 = conn
@@ -212,6 +300,7 @@ pub async fn get_db_stats(db: &DbPool, db_path: &str, retention_days: u32) -> Re
         db_size_bytes,
         wal_size_bytes,
         total_heartbeats,
+        total_daily_rows,
         total_monitors,
         total_incidents,
         total_sessions,

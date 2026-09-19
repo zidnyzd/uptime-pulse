@@ -236,19 +236,13 @@ impl Heartbeat {
         Ok(buckets)
     }
 
-    // Mengambil 90 bucket harian untuk 90 hari terakhir (visualisasi timeline bar publik)
+    // Mengambil 90 bucket harian untuk 90 hari terakhir (visualisasi timeline bar publik).
+    // Hibrida: hari tua dibaca dari agregat heartbeat_daily (hasil downsampling),
+    // 7 hari terakhir dihitung ulang dari heartbeats mentah. Data mentah selalu
+    // menang bila keduanya ada, karena snapshot harian untuk hari berjalan
+    // belum final dan rollup hari lama bisa basi bila probe baru masuk.
     pub async fn get_daily_buckets(db: &DbPool, monitor_id: i64) -> Result<Vec<BarBucket>> {
         let conn = db.lock().await;
-        let mut stmt = conn.prepare(
-            "SELECT 
-                strftime('%Y-%m-%d', checked_at) as day,
-                COUNT(*) as total,
-                SUM(CASE WHEN is_up = 1 THEN 1 ELSE 0 END) as up_cnt,
-                AVG(CASE WHEN is_up = 1 THEN latency_ms ELSE NULL END) as avg_lat
-             FROM heartbeats 
-             WHERE monitor_id = ?1 AND checked_at >= date('now', '-89 days', 'localtime')
-             GROUP BY day"
-        )?;
 
         struct RowData {
             total: i64,
@@ -257,19 +251,57 @@ impl Heartbeat {
         }
 
         let mut map: HashMap<String, RowData> = HashMap::new();
-        let rows = stmt.query_map([monitor_id], |row| {
+
+        // Hari tua dari agregat downsampling (di luar jendela mentah 7 hari
+        // datanya hanya ada di sini karena heartbeats mentah sudah diprune).
+        let mut daily_stmt = conn.prepare(
+            "SELECT day, total_checks, up_checks, avg_latency_ms
+             FROM heartbeat_daily
+             WHERE monitor_id = ?1 AND day >= date('now', '-89 days', 'localtime')",
+        )?;
+        let daily_rows = daily_stmt.query_map([monitor_id], |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 RowData {
                     total: row.get(1)?,
-                    up: row.get::<_, Option<i64>>(2)?.unwrap_or(0),
+                    up: row.get(2)?,
                     lat: row.get(3)?,
                 },
             ))
         })?;
-
-        for r in rows {
+        for r in daily_rows {
             let (day, data) = r?;
+            map.insert(day, data);
+        }
+
+        // 7 hari terakhir selalu dihitung dari data mentah (masih di dalam retensi).
+        let raw_threshold = format!("-{} days", crate::database::RAW_HEARTBEAT_RETENTION_DAYS);
+        let mut raw_stmt = conn.prepare(
+            "SELECT
+                strftime('%Y-%m-%d', checked_at) as day,
+                COUNT(*) as total,
+                SUM(CASE WHEN is_up = 1 THEN 1 ELSE 0 END) as up_cnt,
+                AVG(CASE WHEN is_up = 1 THEN latency_ms ELSE NULL END) as avg_lat
+             FROM heartbeats
+             WHERE monitor_id = ?1 AND checked_at >= datetime('now', 'localtime', ?2)
+             GROUP BY day",
+        )?;
+        let raw_rows = raw_stmt.query_map(
+            rusqlite::params![monitor_id, raw_threshold],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    RowData {
+                        total: row.get(1)?,
+                        up: row.get::<_, Option<i64>>(2)?.unwrap_or(0),
+                        lat: row.get(3)?,
+                    },
+                ))
+            },
+        )?;
+        for r in raw_rows {
+            let (day, data) = r?;
+            // Data mentah menimpa snapshot agregat: nilainya paling mutakhir.
             map.insert(day, data);
         }
 
