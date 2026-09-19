@@ -97,8 +97,11 @@ impl AppConfig {
 }
 
 fn print_help() {
+    // Versi diambil dari Cargo.toml saat kompilasi. Sebelumnya ditulis tetap
+    // "v0.1.0" di sini, sehingga `--help` melaporkan versi yang salah setelah
+    // rilis — kesalahan yang sama seperti label sidebar yang dulu hardcoded.
     println!(
-        r#"UptimePulse v0.1.0 - Ultra-lightweight self-hosted monitoring system
+        r#"UptimePulse v{version} - Ultra-lightweight self-hosted monitoring system
 
 USAGE:
   uptime-pulse [OPTIONS]
@@ -110,6 +113,7 @@ OPTIONS:
   -r, --retention <DAYS>    Log retention days before auto-pruning [env: UPTIME_RETENTION_DAYS] (default: 90)
       --password <PASS>     Default admin password if not set [env: ADMIN_PASSWORD]
       --help                Show this help message
-"#
+"#,
+        version = env!("CARGO_PKG_VERSION")
     );
 }
