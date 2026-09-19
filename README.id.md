@@ -31,14 +31,27 @@ Seluruh aset antarmuka frontend (HTML, CSS, JS) di-embed langsung ke dalam file 
 ## ✨ Fitur Utama
 
 - **Arsitektur Strict MVC:** Pemisahan struktur yang jelas antara `models`, `views`, dan `controllers` secara rapi dan modular.
-- **Dukungan Multi-Protokol:** Mendukung pemantauan **ICMP Ping**, **HTTP / HTTPS** (didukung engine pure-Rust `rustls`), dan handshake **TCP Port**.
+- **Dukungan Multi-Protokol:** Mendukung pemantauan **ICMP Ping**, **HTTP / HTTPS** (didukung engine pure-Rust `rustls`), **HTTP JSON Query** (`http_json` memeriksa isi respons via `json_path` + `expected_value` yang harus sama persis), dan handshake **TCP Port**.
+- **Request HTTP Terkonfigurasi:** Method per monitor (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS), header kustom (`Nama: Nilai` per baris, CR/LF ditolak), dan request body (default `Content-Type: application/json`). Mengidentifikasi diri dengan `User-Agent: UptimePulse/<versi> (+URL repo)`, bisa diganti per monitor.
 - **Engine Anti-False Alarm:** Multi-packet ping (`-c 2`) dengan toleransi jitter jaringan WAN, mekanisme retry bertahap yang fleksibel, dan *staggered scheduling* untuk mencegah lonjakan beban serentak (*thundering herd*).
 - **Desain UI Terinspirasi Linear/Vercel:** Halaman status publik dengan daftar terpadu (*Unified Grouped List*) tanpa kotak berlebih, ribbon 90 micro-bar, palet dark warm charcoal (`#202020` / `#282828`), dan kontras light mode yang telah diaudit.
 - **Kustomisasi Urutan Monitor Interaktif:** Pengaturan urutan kartu monitor via *HTML5 Drag & Drop* di desktop dengan grip handle 6 titik, serta tombol panah atas/bawah (↑ / ↓) yang responsif pada layar sentuh/mobile.
-- **Perlindungan Memori Flash:** SQLite dengan mode WAL (*Write-Ahead Logging*), timeout busy 5000ms, pembersihan riwayat otomatis (*auto-pruning*) per 6 jam, dan checkpoint WAL berkala untuk menjaga keawetan flash eMMC/NAND pada router.
-- **Notifikasi Telegram Instan:** Pencatatan insiden otomatis, kalkulasi durasi gangguan, dan format zona waktu global (WIB, WITA, WIT, GMT, dll.).
+- **Perlindungan Memori Flash:** SQLite dengan mode WAL (*Write-Ahead Logging*), timeout busy 5000ms, downsampling harian (probe mentah disimpan 7 hari, agregat harian ikut `--retention` default 90), pembersihan otomatis (*auto-pruning*) per 6 jam dengan checkpoint WAL, dan `?vacuum=true` manual saja (VACUUM otomatis tidak pernah jalan, untuk menjaga umur eMMC).
+- **Notifikasi Telegram Instan:** Pencatatan insiden otomatis, kalkulasi durasi gangguan, dukungan topik/thread forum, log file persisten (`alerts.log` di samping `--db`, rotasi 512 KB) karena syslog router hanya di RAM, dan format zona waktu global (WIB, WITA, WIT, GMT, dll.).
 - **Keamanan Berlapis:** Proteksi *rate-limiting* in-memory (blokir 5 menit setelah 5x gagal login), *security headers* (`nosniff`, `SAMEORIGIN`, `strict-origin-when-cross-origin`), dan validasi password minimal 8 karakter.
 - **Backup & Restore Penuh:** Ekspor dan impor data konfigurasi melalui file JSON terstruktur atau unduh langsung salinan mentah basis data SQLite (`.db`).
+
+### Memilih tipe monitor
+
+| Target | Gunakan | Alasan |
+|---|---|---|
+| Layanan web / API | `http` / `https` | Memeriksa status code asli (2xx/3xx = UP) |
+| API JSON yang balas 200 saat error | `http_json` | Memastikan `json_path` sama dengan `expected_value` (harus sama persis); expected kosong berarti path harus ada |
+| Host hidup, tanpa web server | `ping` | Hanya membuktikan reachability L3 |
+| Port mentah (SSH, DB, kustom) | `tcp` | Membuktikan handshake ke `host:port` |
+| Hostname di balik CDN/proxy | `http`, jangan `ping` | Ping hanya mengukur edge CDN, bukan origin Anda; origin bisa mati total sementara ping tetap 0% loss |
+
+Batasan, disampaikan jujur: `http` biasa tidak memeriksa body; perbandingan `http_json` harus sama persis (tanpa mode mengandung); body error non-JSON (halaman maintenance HTML, error plain-text) belum ada assertion.
 
 ---
 
@@ -121,7 +134,7 @@ Unduh file binary statis `uptime-pulse-linux-arm64` dari halaman [GitHub Release
 
 ```bash
 chmod +x uptime-pulse-linux-arm64
-./uptime-pulse-linux-arm64 --port 3001 --db /etc/uptime.db --retention 90 &
+./uptime-pulse-linux-arm64 --port 3001 --db /etc/uptime-pulse/uptime.db --retention 90 &
 ```
 
 ---
@@ -133,7 +146,7 @@ chmod +x uptime-pulse-linux-arm64
 | `-h, --host` | `UPTIME_HOST` | `0.0.0.0` | Alamat interface jaringan listen |
 | `-p, --port` | `UPTIME_PORT` | `3001` | Port web server |
 | `-d, --db` | `UPTIME_DB_PATH` | `uptime.db` | Jalur lokasi file database SQLite |
-| `-r, --retention` | `UPTIME_RETENTION_DAYS` | `90` | Batas hari retensi log probe sebelum dibersihkan otomatis |
+| `-r, --retention` | `UPTIME_RETENTION_DAYS` | `90` | Hari penyimpanan agregat harian sebelum dibersihkan otomatis (probe mentah selalu 7 hari) |
 | `--password` | `ADMIN_PASSWORD` | `admin` | Password default admin jika belum terdaftar di database |
 
 ---
