@@ -71,7 +71,10 @@ pub fn build_api_router(
         .with_state(monitor_controller_state)
         .route_layer(from_fn_with_state(auth_mw_state.clone(), require_admin_auth));
 
-    let setting_controller_state = Arc::new(SettingControllerState { db: db.clone() });
+    let setting_controller_state = Arc::new(SettingControllerState {
+        db: db.clone(),
+        version_cache: tokio::sync::Mutex::new(None),
+    });
     let admin_setting_routes = Router::new()
         .route(
             "/api/settings/telegram",
@@ -87,6 +90,13 @@ pub fn build_api_router(
             get(setting_controller::get_branding_settings)
                 .post(setting_controller::save_branding_settings),
         )
+        // Sinkronisasi offset zona waktu (dihitung browser, lihat controller)
+        .route(
+            "/api/settings/branding/timezone-sync",
+            post(setting_controller::sync_timezone_snapshot),
+        )
+        // Versi yang berjalan + info rilis terbaru (untuk sidebar admin)
+        .route("/api/system/version", get(setting_controller::get_version_info))
         .with_state(setting_controller_state)
         .route_layer(from_fn_with_state(auth_mw_state.clone(), require_admin_auth));
 

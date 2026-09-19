@@ -1,7 +1,138 @@
+use chrono::{Duration, Local, NaiveDateTime};
 use rusqlite::{params, OptionalExtension, Result};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 use crate::database::DbPool;
+
+/// Menggeser stempel waktu lokal-OS yang tersimpan di database agar sesuai
+/// dengan zona waktu yang dipilih di aplikasi.
+///
+/// Kenapa perlu digeser: seluruh timestamp disimpan sebagai teks hasil
+/// `datetime('now', 'localtime')`, yaitu waktu lokal **sistem operasi**. Zona
+/// waktu aplikasi (`branding_timezone`) belum tentu sama dengan zona OS — pada
+/// instalasi dengan OS UTC sementara aplikasi diset WIB, notifikasi akan
+/// menampilkan waktu 7 jam lebih awal bila tidak dikoreksi.
+///
+/// Offset zona aplikasi dikirim oleh frontend, karena basis data zona waktu
+/// lengkap hanya tersedia di browser (`Intl.DateTimeFormat`); binary ini tidak
+/// membundel tzdata dan tzdata perangkat (OpenWrt) sering tidak lengkap.
+/// Offset OS dibaca dari `chrono::Local`, sehingga perhitungan tetap benar
+/// ketika perangkat memang sudah dikonfigurasi ke zona yang sama (delta = 0).
+pub fn shift_local_timestamp(stored_local: &str, app_utc_offset_minutes: i32) -> String {
+    let os_offset_minutes = Local::now().offset().local_minus_utc() / 60;
+    shift_with_os_offset(stored_local, app_utc_offset_minutes, os_offset_minutes)
+}
+
+/// Inti aritmetika pergeseran, dengan offset OS sebagai parameter eksplisit.
+///
+/// Dipisah dari `shift_local_timestamp` supaya bisa diuji secara deterministik:
+/// nilai nyata `Local::now()` bergantung pada zona mesin penguji, sehingga
+/// asersi terhadap angka absolut mustahil dilakukan pada fungsi gabungan.
+pub fn shift_with_os_offset(
+    stored_local: &str,
+    app_utc_offset_minutes: i32,
+    os_utc_offset_minutes: i32,
+) -> String {
+    let raw = stored_local.trim();
+    let parsed = NaiveDateTime::parse_from_str(raw, "%Y-%m-%d %H:%M:%S")
+        .or_else(|_| NaiveDateTime::parse_from_str(raw, "%Y-%m-%dT%H:%M:%S"));
+
+    let dt = match parsed {
+        Ok(v) => v,
+        // Format tak dikenal: biarkan apa adanya supaya alert tetap terkirim.
+        Err(_) => return stored_local.to_string(),
+    };
+
+    let delta_minutes = i64::from(app_utc_offset_minutes - os_utc_offset_minutes);
+
+    (dt + Duration::minutes(delta_minutes))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string()
+}
+
+/// Cuplikan zona waktu aplikasi (offset UTC + singkatan) yang dihitung browser.
+///
+/// Offset disimpan sebagai menit agar bebas dari parsing string, dan singkatan
+/// disimpan terpisah karena peta singkatan yang akurat (`WIB`, `WITA`, `EST`)
+/// hanya dimiliki sisi klien. Keduanya adalah data turunan dari
+/// `branding_timezone`, bukan preferensi terpisah — jadi menimpanya berulang
+/// kali aman (idempoten).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TimezoneSnapshot {
+    pub utc_offset_minutes: Option<i32>,
+    pub abbr: Option<String>,
+}
+
+impl TimezoneSnapshot {
+    pub async fn load(db: &DbPool) -> Self {
+        let conn = db.lock().await;
+        let get_val = |key: &str| -> Option<String> {
+            conn.query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                params![key],
+                |r| r.get(0),
+            )
+            .optional()
+            .unwrap_or(None)
+        };
+
+        Self {
+            utc_offset_minutes: get_val("branding_utc_offset_minutes")
+                .and_then(|v| v.trim().parse::<i32>().ok()),
+            abbr: get_val("branding_timezone_abbr").filter(|s| !s.trim().is_empty()),
+        }
+    }
+
+    pub async fn save(&self, db: &DbPool) -> Result<()> {
+        let conn = db.lock().await;
+        let offset_str = self.utc_offset_minutes.map(|m| m.to_string()).unwrap_or_default();
+        let abbr_str = self.abbr.clone().unwrap_or_default();
+
+        let pairs = [
+            ("branding_utc_offset_minutes", offset_str.as_str()),
+            ("branding_timezone_abbr", abbr_str.as_str()),
+        ];
+
+        for (k, v) in pairs {
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![k, v],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Offset aplikasi bila tersedia, jika tidak jatuh ke offset zona OS.
+    ///
+    /// Fallback ke offset OS berarti delta nol: perilaku lama dipertahankan
+    /// untuk instalasi yang zona OS-nya sudah benar, dan yang belum pernah
+    /// membuka konsol admin sejak pembaruan ini.
+    pub fn offset_or_os(&self) -> i32 {
+        self.utc_offset_minutes
+            .unwrap_or_else(|| Local::now().offset().local_minus_utc() / 60)
+    }
+
+    /// Singkatan zona untuk label notifikasi. Bila belum pernah disinkronkan,
+    /// diturunkan dari offset dalam bentuk `UTC+7` / `UTC+5:30` / `UTC`.
+    pub fn abbr_or_derived(&self) -> String {
+        if let Some(a) = self.abbr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            return a.to_string();
+        }
+        let total = self.offset_or_os();
+        if total == 0 {
+            return "UTC".to_string();
+        }
+        let sign = if total < 0 { '-' } else { '+' };
+        let abs = total.abs();
+        let (h, m) = (abs / 60, abs % 60);
+        if m == 0 {
+            format!("UTC{}{}", sign, h)
+        } else {
+            format!("UTC{}{}:{:02}", sign, h, m)
+        }
+    }
+}
 
 // Model konfigurasi notifikasi Telegram
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,25 +274,28 @@ impl TelegramSettings {
         error_msg: &str,
         started_at: &str,
     ) {
-        if let Ok(cfg) = Self::load(db).await {
-            if cfg.enabled {
-                let topic_info = cfg.thread_id.map(|t| format!(" • Topic #{}", t)).unwrap_or_default();
-                let text = format!(
-                    "🔴 <b>[DOWN] Service Incident Detected</b>{}\n\n\
-                     <b>Service:</b> {}\n\
-                     <b>Target:</b> <code>{}</code>\n\
-                     <b>Time:</b> {} WIB\n\
-                     <b>Error:</b> <code>{}</code>",
-                    topic_info,
-                    html_escape(service_name),
-                    html_escape(target),
-                    started_at,
-                    html_escape(error_msg)
-                );
+        if let Ok(cfg) = Self::load(db).await
+            && cfg.enabled
+        {
+            let tz = TimezoneSnapshot::load(db).await;
+            let stamp = shift_local_timestamp(started_at, tz.offset_or_os());
+            let topic_info = cfg.thread_id.map(|t| format!(" • Topic #{}", t)).unwrap_or_default();
+            let text = format!(
+                "🔴 <b>[DOWN] Service Incident Detected</b>{}\n\n\
+                 <b>Service:</b> {}\n\
+                 <b>Target:</b> <code>{}</code>\n\
+                 <b>Time:</b> {} {}\n\
+                 <b>Error:</b> <code>{}</code>",
+                topic_info,
+                html_escape(service_name),
+                html_escape(target),
+                stamp,
+                tz.abbr_or_derived(),
+                html_escape(error_msg)
+            );
 
-                if let Err(e) = cfg.send_message(&text).await {
-                    error!("Failed to send Telegram DOWN alert: {}", e);
-                }
+            if let Err(e) = cfg.send_message(&text).await {
+                error!("Failed to send Telegram DOWN alert: {}", e);
             }
         }
     }
@@ -174,26 +308,29 @@ impl TelegramSettings {
         duration_sec: i64,
         resolved_at: &str,
     ) {
-        if let Ok(cfg) = Self::load(db).await {
-            if cfg.enabled {
-                let dur_str = format_duration(duration_sec);
-                let topic_info = cfg.thread_id.map(|t| format!(" • Topic #{}", t)).unwrap_or_default();
-                let text = format!(
-                    "🟢 <b>[RECOVERED] Service Restored</b>{}\n\n\
-                     <b>Service:</b> {}\n\
-                     <b>Target:</b> <code>{}</code>\n\
-                     <b>Downtime:</b> <b>{}</b>\n\
-                     <b>Restored At:</b> {} WIB",
-                    topic_info,
-                    html_escape(service_name),
-                    html_escape(target),
-                    dur_str,
-                    resolved_at
-                );
+        if let Ok(cfg) = Self::load(db).await
+            && cfg.enabled
+        {
+            let tz = TimezoneSnapshot::load(db).await;
+            let stamp = shift_local_timestamp(resolved_at, tz.offset_or_os());
+            let dur_str = format_duration(duration_sec);
+            let topic_info = cfg.thread_id.map(|t| format!(" • Topic #{}", t)).unwrap_or_default();
+            let text = format!(
+                "🟢 <b>[RECOVERED] Service Restored</b>{}\n\n\
+                 <b>Service:</b> {}\n\
+                 <b>Target:</b> <code>{}</code>\n\
+                 <b>Downtime:</b> <b>{}</b>\n\
+                 <b>Restored At:</b> {} {}",
+                topic_info,
+                html_escape(service_name),
+                html_escape(target),
+                dur_str,
+                stamp,
+                tz.abbr_or_derived()
+            );
 
-                if let Err(e) = cfg.send_message(&text).await {
-                    error!("Failed to send Telegram RECOVERY alert: {}", e);
-                }
+            if let Err(e) = cfg.send_message(&text).await {
+                error!("Failed to send Telegram RECOVERY alert: {}", e);
             }
         }
     }
@@ -316,5 +453,130 @@ impl BrandingSettings {
             )?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Delta dihitung terhadap offset zona OS saat test berjalan, sehingga
+    // asersi di bawah bebas dari zona waktu mesin pengembang.
+    fn os_offset_minutes() -> i32 {
+        Local::now().offset().local_minus_utc() / 60
+    }
+
+    fn expected_shift(stamp: &str, app_offset: i32) -> String {
+        let dt = NaiveDateTime::parse_from_str(stamp, "%Y-%m-%d %H:%M:%S").unwrap();
+        (dt + Duration::minutes(i64::from(app_offset - os_offset_minutes())))
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+    }
+
+    #[test]
+    fn shift_matches_configured_app_timezone() {
+        let stamp = "2026-09-19 08:20:39";
+        let app_offset = 7 * 60; // WIB
+        assert_eq!(shift_local_timestamp(stamp, app_offset), expected_shift(stamp, app_offset));
+    }
+
+    // --- Bukti angka absolut: inti keluhan "waktu Telegram masih UTC" ---
+    // Insiden nyata 2026-09-19 10:00 UTC = 17:00 WIB.
+
+    #[test]
+    fn os_utc_with_wib_app_shifts_seven_hours_forward() {
+        // Kasus laporan: OS UTC, aplikasi diset WIB. Nilai lama akan tampil
+        // "10:00 WIB" (7 jam lebih awal); yang benar adalah 17:00 WIB.
+        let stored = "2026-09-19 10:00:00";
+        assert_eq!(
+            shift_with_os_offset(stored, 420, 0),
+            "2026-09-19 17:00:00"
+        );
+    }
+
+    #[test]
+    fn os_wib_with_wib_app_is_unchanged() {
+        // Kasus STB produksi: OS sudah WIB, jadi tidak boleh bergeser sama sekali.
+        let stored = "2026-09-19 17:00:00";
+        assert_eq!(
+            shift_with_os_offset(stored, 420, 420),
+            "2026-09-19 17:00:00"
+        );
+    }
+
+    #[test]
+    fn os_utc_with_new_york_app_shifts_backwards() {
+        // 10:00 UTC = 06:00 EDT (UTC-4).
+        let stored = "2026-09-19 10:00:00";
+        assert_eq!(
+            shift_with_os_offset(stored, -240, 0),
+            "2026-09-19 06:00:00"
+        );
+    }
+
+    #[test]
+    fn half_hour_offset_is_supported() {
+        // 10:00 UTC = 15:30 IST (UTC+5:30) — offset 30 menit tidak boleh hilang.
+        let stored = "2026-09-19 10:00:00";
+        assert_eq!(
+            shift_with_os_offset(stored, 330, 0),
+            "2026-09-19 15:30:00"
+        );
+    }
+
+    #[test]
+    fn shift_crosses_day_boundary_correctly() {
+        // 2026-09-19 20:00 UTC + 7 jam = 2026-09-20 03:00 WIB (ganti hari).
+        let stored = "2026-09-19 20:00:00";
+        assert_eq!(
+            shift_with_os_offset(stored, 420, 0),
+            "2026-09-20 03:00:00"
+        );
+    }
+
+    #[test]
+    fn shift_is_noop_when_app_timezone_equals_os_timezone() {
+        let stamp = "2026-09-19 08:20:39";
+        assert_eq!(shift_local_timestamp(stamp, os_offset_minutes()), stamp);
+    }
+
+    #[test]
+    fn shift_handles_negative_offsets() {
+        let stamp = "2026-09-19 23:30:00";
+        let app_offset = -4 * 60; // EDT
+        assert_eq!(shift_local_timestamp(stamp, app_offset), expected_shift(stamp, app_offset));
+    }
+
+    #[test]
+    fn shift_keeps_unparseable_input_unchanged() {
+        // Alert harus tetap terkirim walau format stempel tak dikenal.
+        assert_eq!(shift_local_timestamp("bukan-tanggal", 420), "bukan-tanggal");
+    }
+
+    #[test]
+    fn derived_abbr_formats_offset() {
+        let snap = TimezoneSnapshot { utc_offset_minutes: Some(420), abbr: None };
+        assert_eq!(snap.abbr_or_derived(), "UTC+7");
+
+        let half = TimezoneSnapshot { utc_offset_minutes: Some(330), abbr: None };
+        assert_eq!(half.abbr_or_derived(), "UTC+5:30");
+
+        let zero = TimezoneSnapshot { utc_offset_minutes: Some(0), abbr: None };
+        assert_eq!(zero.abbr_or_derived(), "UTC");
+
+        let west = TimezoneSnapshot { utc_offset_minutes: Some(-300), abbr: None };
+        assert_eq!(west.abbr_or_derived(), "UTC-5");
+    }
+
+    #[test]
+    fn stored_abbr_wins_over_derived() {
+        let snap = TimezoneSnapshot { utc_offset_minutes: Some(420), abbr: Some("WIB".to_string()) };
+        assert_eq!(snap.abbr_or_derived(), "WIB");
+    }
+
+    #[test]
+    fn offset_falls_back_to_os_when_absent() {
+        let snap = TimezoneSnapshot::default();
+        assert_eq!(snap.offset_or_os(), os_offset_minutes());
     }
 }
