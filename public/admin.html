@@ -27,7 +27,8 @@
           </div>
           <div class="brand-text">
             <div class="brand-title">UptimePulse</div>
-            <div class="brand-tag">v0.1.0 • Engine</div>
+            <!-- Versi diisi dari /api/system/version (dibaca dari binary saat kompilasi) -->
+            <div class="brand-tag" id="app-version-tag">v— • Engine</div>
           </div>
         </div>
 
@@ -772,18 +773,33 @@
 
           <!-- Assertion isi respons, hanya untuk tipe "HTTP JSON Query" -->
           <div id="m-json-fields" style="display: none;">
-            <div class="form-row">
-              <div class="form-group" style="flex: 1;">
+            <div class="form-row-3">
+              <div class="form-group">
                 <label title="Jalur ke nilai di dalam JSON, mis. status atau data.health">JSON Path</label>
                 <input type="text" class="form-control" id="m-json-path" placeholder="status" style="font-family: monospace; font-size: 12px;">
               </div>
-              <div class="form-group" style="flex: 1;">
+              <div class="form-group">
+                <label title="Cara membandingkan nilai yang ditemukan dengan Expected Value">Operator</label>
+                <select class="form-control" id="m-json-operator" style="font-family: monospace; font-size: 12px;">
+                  <option value="==">== (sama persis)</option>
+                  <option value="!=">!= (tidak sama)</option>
+                  <option value="contains">contains (mengandung)</option>
+                  <option value="not_contains">not contains (tidak mengandung)</option>
+                  <option value="&gt;">&gt; (lebih besar)</option>
+                  <option value="&gt;=">&gt;= (lebih besar / sama)</option>
+                  <option value="&lt;">&lt; (lebih kecil)</option>
+                  <option value="&lt;=">&lt;= (lebih kecil / sama)</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label title="Nilai yang diharapkan. Kosongkan bila cukup path-nya ada">Expected Value</label>
                 <input type="text" class="form-control" id="m-expected-value" placeholder="ok" style="font-family: monospace; font-size: 12px;">
               </div>
             </div>
             <div class="form-tip-box">
-              <strong>🔎 HTTP JSON Query:</strong> Target dinyatakan UP hanya bila respons JSON memuat nilai pada <em>JSON Path</em> yang sama dengan <em>Expected Value</em>. Menangkap kasus "HTTP 200 tetapi isinya error". Path mendukung dot notation dan indeks array, mis. <code>data.items.0.state</code>. Kosongkan <em>Expected Value</em> bila cukup memastikan path-nya ada.
+              <strong>🔎 HTTP JSON Query:</strong> Target dinyatakan UP bila nilai pada <em>JSON Path</em> memenuhi <em>Operator</em> terhadap <em>Expected Value</em>. Menangkap kasus "HTTP 200 tetapi isinya error".<br>
+              <strong>Path</strong> mendukung dot notation, indeks array, dan wildcard: <code>status</code>, <code>data.items.0.state</code>, <code>items[*].state</code> (semua elemen).<br>
+              <strong>Operator</strong> <code>&gt;</code> <code>&gt;=</code> <code>&lt;</code> <code>&lt;=</code> memerlukan nilai angka. Perbandingan teks mengabaikan besar-kecil huruf. Kosongkan <em>Expected Value</em> bila cukup memastikan path-nya ada.
             </div>
           </div>
 
@@ -879,18 +895,33 @@
 
           <!-- Assertion isi respons, hanya untuk tipe "HTTP JSON Query" -->
           <div id="edit-json-fields" style="display: none;">
-            <div class="form-row">
-              <div class="form-group" style="flex: 1;">
+            <div class="form-row-3">
+              <div class="form-group">
                 <label title="Jalur ke nilai di dalam JSON, mis. status atau data.health">JSON Path</label>
                 <input type="text" class="form-control" id="edit-json-path" placeholder="status" style="font-family: monospace; font-size: 12px;">
               </div>
-              <div class="form-group" style="flex: 1;">
+              <div class="form-group">
+                <label title="Cara membandingkan nilai yang ditemukan dengan Expected Value">Operator</label>
+                <select class="form-control" id="edit-json-operator" style="font-family: monospace; font-size: 12px;">
+                  <option value="==">== (sama persis)</option>
+                  <option value="!=">!= (tidak sama)</option>
+                  <option value="contains">contains (mengandung)</option>
+                  <option value="not_contains">not contains (tidak mengandung)</option>
+                  <option value="&gt;">&gt; (lebih besar)</option>
+                  <option value="&gt;=">&gt;= (lebih besar / sama)</option>
+                  <option value="&lt;">&lt; (lebih kecil)</option>
+                  <option value="&lt;=">&lt;= (lebih kecil / sama)</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label title="Nilai yang diharapkan. Kosongkan bila cukup path-nya ada">Expected Value</label>
                 <input type="text" class="form-control" id="edit-expected-value" placeholder="ok" style="font-family: monospace; font-size: 12px;">
               </div>
             </div>
             <div class="form-tip-box">
-              <strong>🔎 HTTP JSON Query:</strong> Target dinyatakan UP hanya bila respons JSON memuat nilai pada <em>JSON Path</em> yang sama dengan <em>Expected Value</em>. Menangkap kasus "HTTP 200 tetapi isinya error". Path mendukung dot notation dan indeks array, mis. <code>data.items.0.state</code>. Kosongkan <em>Expected Value</em> bila cukup memastikan path-nya ada.
+              <strong>🔎 HTTP JSON Query:</strong> Target dinyatakan UP bila nilai pada <em>JSON Path</em> memenuhi <em>Operator</em> terhadap <em>Expected Value</em>. Menangkap kasus "HTTP 200 tetapi isinya error".<br>
+              <strong>Path</strong> mendukung dot notation, indeks array, dan wildcard: <code>status</code>, <code>data.items.0.state</code>, <code>items[*].state</code> (semua elemen).<br>
+              <strong>Operator</strong> <code>&gt;</code> <code>&gt;=</code> <code>&lt;</code> <code>&lt;=</code> memerlukan nilai angka. Perbandingan teks mengabaikan besar-kecil huruf. Kosongkan <em>Expected Value</em> bila cukup memastikan path-nya ada.
             </div>
           </div>
 

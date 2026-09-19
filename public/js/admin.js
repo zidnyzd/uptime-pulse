@@ -289,16 +289,34 @@ async function checkAuth() {
     const res = await apiFetch('/api/auth/me');
     const data = await res.json();
     if (data.authenticated) {
-      showDashboard();
-      await loadMonitors();
-      initSSE();
-      applyBrandingFavicon();
+      await enterDashboard();
     } else {
       showLogin();
     }
   } catch (e) {
     showLogin();
   }
+}
+
+// Pekerjaan yang harus terjadi di SETIAP jalur masuk ke dashboard.
+//
+// Dipusatkan di satu fungsi karena ada dua pintu masuk — sesi tersimpan
+// (`checkAuth`) dan login manual (`handleLogin`). Menaruh panggilan hanya di
+// salah satunya membuat perilaku berbeda tergantung cara admin masuk, dan
+// perbedaan itu tidak terlihat saat menguji hanya satu jalur.
+async function enterDashboard() {
+  showDashboard();
+  await loadMonitors();
+  initSSE();
+  applyBrandingFavicon();
+
+  // Sinkronkan zona waktu: menjaring instalasi yang zona OS-nya berbeda dari
+  // zona aplikasi tanpa perlu simpan ulang pengaturan branding. Idempoten,
+  // jadi aman dipanggil setiap kali admin masuk.
+  loadBrandingSettings().then(() => syncTimezoneSnapshot(configuredTimezone));
+
+  // Label versi di sidebar dibaca dari binary yang sedang berjalan.
+  loadAppVersion();
 }
 
 function showLogin() {
@@ -334,10 +352,7 @@ async function handleLogin(e) {
     const data = await res.json();
     if (res.ok && data.success) {
       localStorage.setItem('uptime_token', data.token);
-      showDashboard();
-      await loadMonitors();
-      initSSE();
-      applyBrandingFavicon();
+      await enterDashboard();
     } else {
       errBox.textContent = data.error || 'Kombinasi username atau password salah';
       errBox.style.display = 'block';
@@ -881,6 +896,18 @@ function initSSE() {
     sseConnection.onmessage = (e) => {
       try {
         const event = JSON.parse(e.data);
+
+        // Monitor yang baru disimpan: laporkan hasil probe pertamanya, karena
+        // server menjalankannya di background dan tidak mengembalikannya di
+        // respons POST. Sekali pakai, lalu entri dihapus.
+        const pending = pendingProbeNotify.get(event.monitor_id);
+        if (pending) {
+          clearTimeout(pending.timer);
+          pendingProbeNotify.delete(event.monitor_id);
+          const toast = formatProbeToast(event, pending.name);
+          showToast(toast.message, toast.type);
+        }
+
         const m = monitorsMap.get(event.monitor_id);
         if (m) {
           m.status = event.status;
@@ -1049,6 +1076,7 @@ async function handleCreateMonitor(e) {
     body: document.getElementById('m-body').value || '',
     json_path: document.getElementById('m-json-path').value || '',
     expected_value: document.getElementById('m-expected-value').value || '',
+    json_operator: document.getElementById('m-json-operator') ? document.getElementById('m-json-operator').value : '==',
   };
 
   try {
@@ -1059,8 +1087,15 @@ async function handleCreateMonitor(e) {
     });
 
     if (res.ok) {
+      const data = await res.json();
+      const newName = payload.name;
       closeAddModal();
+      // Pasang penunggu hasil probe SEBELUM memuat ulang daftar: kalau event
+      // SSE tiba lebih dulu, notifikasinya sudah siap menangkapnya.
+      if (data.id) armProbeNotification(data.id, newName);
       await loadMonitors();
+      // Jaring kedua untuk probe yang sudah selesai sebelum penunggu terpasang.
+      flushSettledProbeNotifications();
       showToast(currentLang === 'id' ? 'Monitor berhasil ditambahkan.' : 'Monitor added.', 'success');
     } else {
       const err = await res.text();
@@ -1090,6 +1125,8 @@ function openEditModal(id) {
   document.getElementById('edit-body').value = m.body || '';
   document.getElementById('edit-json-path').value = m.json_path || '';
   document.getElementById('edit-expected-value').value = m.expected_value || '';
+  const editOp = document.getElementById('edit-json-operator');
+  if (editOp) editOp.value = m.json_operator || '==';
 
   handleEditTypeChange();
   document.getElementById('edit-modal').style.display = 'flex';
@@ -1142,6 +1179,7 @@ async function handleUpdateMonitor(e) {
     body: document.getElementById('edit-body').value || '',
     json_path: document.getElementById('edit-json-path').value || '',
     expected_value: document.getElementById('edit-expected-value').value || '',
+    json_operator: document.getElementById('edit-json-operator') ? document.getElementById('edit-json-operator').value : '==',
   };
 
   const btn = document.getElementById('btn-edit-submit');
@@ -1157,7 +1195,11 @@ async function handleUpdateMonitor(e) {
 
     if (res.ok) {
       closeEditModal();
+      // Konfigurasi berubah, jadi probe ulang dijalankan di background.
+      // Pasang penunggu lebih dulu agar hasilnya langsung terlihat.
+      armProbeNotification(id, payload.name);
       await loadMonitors();
+      flushSettledProbeNotifications();
       showToast(currentLang === 'id' ? 'Monitor berhasil diperbarui.' : 'Monitor updated.', 'success');
     } else {
       const err = await res.text();
@@ -1304,6 +1346,47 @@ function getTimezoneAbbr(tz) {
   return tz;
 }
 
+// Menghitung offset UTC (dalam menit) untuk sebuah zona IANA pada saat ini.
+// Browser punya basis data zona waktu lengkap, sedangkan backend tidak
+// membundel tzdata dan tzdata perangkat sering tidak lengkap — jadi offset
+// dihitung di sini lalu dikirim ke server untuk koreksi stempel waktu notifikasi.
+function getTimezoneOffsetMinutes(tz) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    }).formatToParts(new Date());
+
+    const get = (type) => parseInt(parts.find(p => p.type === type)?.value, 10);
+    // Detik di-nolkan karena zona dengan offset 30/45 menit membuat selisih
+    // detik acak (mis. Asia/Kathmandu +5:45).
+    const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
+    const roundedNow = Math.floor(Date.now() / 1000) * 1000;
+    return Math.round((asUtc - roundedNow) / 60000);
+  } catch (e) {
+    return null;
+  }
+}
+
+// Menyimpan offset & singkatan zona waktu ke server agar notifikasi Telegram
+// memakai zona waktu aplikasi, bukan zona OS perangkat.
+async function syncTimezoneSnapshot(tz) {
+  const offset = getTimezoneOffsetMinutes(tz);
+  if (offset === null) return;
+
+  try {
+    await apiFetch('/api/settings/branding/timezone-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ utc_offset_minutes: offset, abbr: getTimezoneAbbr(tz) })
+    });
+  } catch (err) {
+    console.error('Failed to sync timezone snapshot:', err);
+  }
+}
+
 function formatCustomDate(dateInput, tz = 'Asia/Jakarta', timeFormat = '24h', dateFormat = 'DD-MM-YYYY') {
   if (!dateInput) return '';
 
@@ -1367,6 +1450,133 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// --- Notifikasi hasil probe pertama setelah monitor disimpan ---
+
+// Id monitor yang baru disimpan dan sedang ditunggu hasil probe pertamanya.
+// Probe dijalankan di background oleh server, jadi hasilnya tidak bisa dibaca
+// dari respons POST /api/monitors. Hasil itu datang lewat SSE sesaat kemudian;
+// peta ini menghubungkan keduanya supaya admin langsung melihat status nyata
+// (200/500, latency, atau pesan error) tanpa membuka detail monitor.
+const pendingProbeNotify = new Map(); // id -> { name, timer }
+
+function armProbeNotification(id, name) {
+  // Jaring pengaman: bila SSE sedang terputus, hasil probe tidak akan pernah
+  // sampai. Beri tahu apa adanya supaya admin tidak menunggu tanpa ujung,
+  // dan jangan biarkan entri ini menggantung selamanya di dalam peta.
+  const timer = setTimeout(() => {
+    if (pendingProbeNotify.delete(id)) {
+      showToast(
+        currentLang === 'id'
+          ? `Monitor "${name}" disimpan. Hasil pemeriksaan pertama belum diterima — buka detail untuk melihat statusnya.`
+          : `Monitor "${name}" saved. First check result not received yet — open details to see its status.`,
+        'success'
+      );
+    }
+  }, 20000);
+
+  pendingProbeNotify.set(id, { name, timer });
+}
+
+// Menutup celah balapan: probe bisa selesai sebelum notifikasi sempat dipasang
+// (mis. ping ke host lokal yang balas dalam milidetik), sehingga event SSE-nya
+// sudah lewat sebelum kita mulai mendengarkan. Setelah daftar monitor dimuat
+// ulang, monitor yang statusnya bukan lagi 'pending' berarti sudah diperiksa —
+// ambil heartbeat terakhirnya untuk melaporkan status yang sebenarnya.
+async function flushSettledProbeNotifications() {
+  for (const [id, entry] of Array.from(pendingProbeNotify.entries())) {
+    const m = monitorsMap.get(id);
+    if (!m || m.status === 'pending') continue;
+
+    clearTimeout(entry.timer);
+    pendingProbeNotify.delete(id);
+
+    let event = {
+      is_up: m.status === 'up',
+      status_code: null,
+      latency_ms: m.last_latency_ms,
+      error_message: null
+    };
+
+    // Detail monitor memuat heartbeat mentah, satu-satunya sumber status code
+    // dan pesan error. Kegagalan di sini tidak fatal: toast tetap tampil
+    // dengan status dan latency yang sudah diketahui.
+    try {
+      const res = await apiFetch(`/api/monitors/${id}`);
+      if (res.ok) {
+        const detail = await res.json();
+        const last = (detail.recent_heartbeats || []).slice(-1)[0];
+        if (last) {
+          event = {
+            is_up: last.is_up,
+            status_code: last.status_code,
+            latency_ms: last.latency_ms,
+            error_message: last.error_message
+          };
+        }
+      }
+    } catch (err) {}
+
+    const toast = formatProbeToast(event, entry.name);
+    showToast(toast.message, toast.type);
+  }
+}
+
+// Menyusun pesan hasil probe untuk toast, memakai data dari event SSE.
+function formatProbeToast(event, name) {
+  const savedMsg = currentLang === 'id' ? 'disimpan' : 'saved';
+
+  if (event.is_up) {
+    const code = event.status_code ? `HTTP ${event.status_code}` : 'OK';
+    const lat = typeof event.latency_ms === 'number' ? ` • ${event.latency_ms.toFixed(0)} ms` : '';
+    return {
+      message: `Monitor "${name}" ${savedMsg} — ${code}${lat}`,
+      type: 'success'
+    };
+  }
+
+  // Gagal: tampilkan status code bila ada, kalau tidak pesan errornya.
+  const code = event.status_code ? `HTTP ${event.status_code}` : '';
+  const reason = event.error_message || '';
+  const detail = [code, reason].filter(Boolean).join(' • ');
+  return {
+    message: `Monitor "${name}" ${savedMsg} — ${detail || (currentLang === 'id' ? 'DITANDAI DOWN' : 'MARKED DOWN')}`,
+    type: 'error'
+  };
+}
+
+// --- Versi aplikasi & notifikasi pembaruan ---
+
+// Mengisi label versi di sidebar dari binary yang benar-benar berjalan.
+// Sebelumnya label ini hardcoded ("v0.1.0") dan tidak pernah ikut naik saat
+// rilis, sehingga admin tidak bisa tahu versi yang terpasang dari UI.
+async function loadAppVersion() {
+  const tag = document.getElementById('app-version-tag');
+  if (!tag) return;
+
+  try {
+    const res = await apiFetch('/api/system/version');
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const current = (data.current || '').trim();
+    if (!current) return;
+
+    if (data.update_available && data.latest) {
+      // Ada rilis lebih baru: tampilkan versi terpasang + ajakan memperbarui.
+      const tip = currentLang === 'id'
+        ? `Versi terbaru ${data.latest} tersedia`
+        : `Newer version ${data.latest} available`;
+      tag.innerHTML = `v${escapeHtml(current)} • <span class="version-update" title="${escapeHtml(tip)}">↑ v${escapeHtml(data.latest)}</span>`;
+    } else {
+      tag.textContent = `v${current} • Engine`;
+    }
+  } catch (err) {
+    // Diamkan: label versi bukan fitur kritis, dan kegagalan jaringan di sini
+    // tidak boleh mengganggu konsol admin.
+    console.error('Failed to load app version:', err);
+  }
 }
 
 // --- Telegram Notification Settings ---
@@ -1581,6 +1791,9 @@ async function handleSaveBranding(e) {
       configuredTimezone = payload.timezone;
       configuredTimeFormat = payload.time_format;
       configuredDateFormat = payload.date_format;
+      // Zona waktu ikut berubah: sinkronkan offset agar notifikasi Telegram
+      // memakai zona yang baru, bukan zona lama.
+      syncTimezoneSnapshot(payload.timezone);
       updateAdminLastFetched();
       if (payload.logo_url && payload.logo_url.trim()) {
         updateFavicon(payload.logo_url.trim());

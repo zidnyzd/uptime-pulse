@@ -76,6 +76,13 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+/* Penanda versi terbaru tersedia di sidebar; warna mengikuti tema, bukan
+   hex hardcoded, supaya tetap terbaca di mode terang. */
+.version-update {
+  color: var(--green);
+  cursor: help;
+}
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;
@@ -1139,6 +1146,24 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+/* Baris form dengan tiga field (mis. JSON Path + Operator + Expected Value).
+   Grid 2 kolom akan menaruh field ketiga di baris baru dan menyisakan celah
+   kosong; tiga kolom membuatnya sejajar pada layar lebar. */
+.form-row-3 {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 12px;
+}
+
+/* Di layar sempit, tiga kolom memaksa label dan input saling menekan.
+   Tumpuk menjadi satu kolom agar tetap terbaca dan mudah disentuh. */
+@media (max-width: 640px) {
+  .form-row,
+  .form-row-3 {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Form Callout & Checkbox Cards */
