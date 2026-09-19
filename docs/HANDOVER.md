@@ -230,7 +230,7 @@ batas dan menghabiskan partisi.
   `/api/public/summary`. Diuji dengan monitor publik yang memuat token unik.
 - **Modal**: tombol aksi terjangkau pada 320x480, 320x568, 360x640, 375x667,
   390x844, 414x896, 768x1024, dan 1440x900.
-- **clippy**: 14 warning, semuanya pre-existing dan bukan dari perubahan terakhir.
+- **clippy**: 13 warning, semuanya pre-existing dan bukan dari perubahan terakhir.
 
 ---
 
@@ -240,7 +240,7 @@ batas dan menghabiskan partisi.
 |---|---|
 | Tipe `http` tidak memeriksa isi respons | Gunakan `http_json` bila target mengembalikan JSON |
 | Perbandingan JSON bersifat persis | Tidak ada mode "mengandung"; nilai harus sama persis |
-| 14 warning clippy | Belum dibersihkan, semuanya pre-existing |
+| 13 warning clippy | Belum dibersihkan, semuanya pre-existing |
 | Ukuran berkas WAL | Bergantung pada checkpoint berkala, perlu dipantau |
 
 ### Pelajaran seputar pengujian UI
