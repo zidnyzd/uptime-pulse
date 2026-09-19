@@ -186,6 +186,16 @@ uptime-pulse/
 
 ---
 
+## 💖 Dukung Proyek Ini
+
+Jika UptimePulse bermanfaat untuk Anda, pertimbangkan untuk mendukung pengembangannya:
+
+<img src="docs/donate-usdt-bep20.jpg" alt="Donasi USDT via BEP20" width="220">
+
+**USDT (BEP20):** `0x020333425b364d1337e0495c2423141d875414fd`
+
+---
+
 ## 📄 Lisensi
 
 Didistribusikan di bawah **Lisensi MIT**. Lihat file [LICENSE](LICENSE) untuk detail selengkapnya.
